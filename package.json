@@ -1,0 +1,21 @@
+{
+  "name": "eternocli",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "eternocli": "./index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "commander": "^14.0.0",
+    "git-clone": "^0.2.0",
+    "inquirer": "^12.9.4",
+    "shelljs": "^0.10.0"
+  }
+}
