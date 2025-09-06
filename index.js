@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync,spawn } = require('child_process');
 
+const Encrypted = require('./Src/Encrypted');
 const { transformFile, getSupportedConversions } = require('./Src/transform');
 // 在文件顶部添加加密解密模块的引入
 const { 
@@ -14,6 +15,7 @@ const {
   processFile, 
   getSupportedAlgorithms 
 } = require('./Src/code');
+const CompressionTool = require('./Src/zip');
 
 // 默认项目结构
 const defaultDirs = ['Bitmap', 'Hardware', 'Software', 'References'];
@@ -348,6 +350,157 @@ program
       console.log(`  - ${algorithm}`);
     });
   });
+
+// ZIP 命令
+program
+  .command('zip')
+  .description('ZIP 压缩操作')
+  .option('-a, --all', '压缩当前目录所有内容')
+  .option('-n, --name <name>', '指定压缩文件名')
+  .option('-f, --folders', '压缩当前目录所有文件夹')
+  .option('-r, --files', '压缩当前目录所有文件')
+  .option('-s, --src <src>', '源文件路径（用于格式转换）')
+  .option('-t, --target <format>', '目标格式（用于格式转换）')
+  .option('-w, --work <src>', '压缩指定文件/文件夹')
+  .option('-o, --output <path>', '输出路径')
+  .option('-d, --delete', '压缩后删除源文件')
+  .action((options) => {
+    try {
+      if (options.all) {
+        CompressionTool.compressAll('zip', options.name, options.delete);
+      } else if (options.folders) {
+        CompressionTool.compressFolders('zip', options.delete);
+      } else if (options.files) {
+        CompressionTool.compressFiles('zip', options.delete);
+      } else if (options.src && options.target) {
+        CompressionTool.convertFormat(options.src, 'zip', options.target, options.delete);
+      } else if (options.work) {
+        CompressionTool.compressSpecific(options.work, 'zip', options.output, options.delete);
+      } else {
+        console.log('请指定压缩模式，使用 -h 查看帮助');
+      }
+    } catch (error) {
+      console.error('操作失败:', error.message);
+      process.exit(1);
+    }
+  });
+
+// 7z 命令
+program
+  .command('7z')
+  .description('7z 压缩操作')
+  .option('-a, --all', '压缩当前目录所有内容')
+  .option('-n, --name <name>', '指定压缩文件名')
+  .option('-f, --folders', '压缩当前目录所有文件夹')
+  .option('-r, --files', '压缩当前目录所有文件')
+  .option('-s, --src <src>', '源文件路径（用于格式转换）')
+  .option('-t, --target <format>', '目标格式（用于格式转换）')
+  .option('-w, --work <src>', '压缩指定文件/文件夹')
+  .option('-o, --output <path>', '输出路径')
+  .option('-d, --delete', '压缩后删除源文件')
+  .action((options) => {
+    try {
+      if (options.all) {
+        CompressionTool.compressAll('7z', options.name, options.delete);
+      } else if (options.folders) {
+        CompressionTool.compressFolders('7z', options.delete);
+      } else if (options.files) {
+        CompressionTool.compressFiles('7z', options.delete);
+      } else if (options.src && options.target) {
+        CompressionTool.convertFormat(options.src, '7z', options.target, options.delete);
+      } else if (options.work) {
+        CompressionTool.compressSpecific(options.work, '7z', options.output, options.delete);
+      } else {
+        console.log('请指定压缩模式，使用 -h 查看帮助');
+      }
+    } catch (error) {
+      console.error('操作失败:', error.message);
+      process.exit(1);
+    }
+  });
+
+// RAR 命令
+program
+  .command('rar')
+  .description('RAR 压缩操作')
+  .option('-a, --all', '压缩当前目录所有内容')
+  .option('-n, --name <name>', '指定压缩文件名')
+  .option('-f, --folders', '压缩当前目录所有文件夹')
+  .option('-r, --files', '压缩当前目录所有文件')
+  .option('-s, --src <src>', '源文件路径（用于格式转换）')
+  .option('-t, --target <format>', '目标格式（用于格式转换）')
+  .option('-w, --work <src>', '压缩指定文件/文件夹')
+  .option('-o, --output <path>', '输出路径')
+  .option('-d, --delete', '压缩后删除源文件')
+  .action((options) => {
+    try {
+      if (options.all) {
+        CompressionTool.compressAll('rar', options.name, options.delete);
+      } else if (options.folders) {
+        CompressionTool.compressFolders('rar', options.delete);
+      } else if (options.files) {
+        CompressionTool.compressFiles('rar', options.delete);
+      } else if (options.src && options.target) {
+        CompressionTool.convertFormat(options.src, 'rar', options.target, options.delete);
+      } else if (options.work) {
+        CompressionTool.compressSpecific(options.work, 'rar', options.output, options.delete);
+      } else {
+        console.log('请指定压缩模式，使用 -h 查看帮助');
+      }
+    } catch (error) {
+      console.error('操作失败:', error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ezip <src>')
+  .description('压缩并加密文件')
+  .option('-o, --output <path>', '输出路径')
+  .action(async (src, options) => {
+    try {
+      // 处理输出路径
+      let outputPath = options.output || process.cwd();
+      const srcName = path.basename(src, path.extname(src));
+      
+      // 如果输出路径是目录，则添加文件名
+      if (fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory()) {
+        outputPath = path.join(outputPath, `${srcName}.ezip`);
+      }
+
+      console.log('正在加密压缩...');
+      await Encrypted.encryptAndCompress(src, outputPath);
+      console.log(`文件已加密压缩到: ${outputPath}`);
+    } catch (error) {
+      console.error('操作失败:', error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('dezip <src>')
+  .description('解密并解压文件')
+  .option('-o, --output <path>', '输出路径')
+  .action(async (src, options) => {
+    try {
+      // 处理输出路径
+      let outputPath = options.output || process.cwd();
+      const srcName = path.basename(src, '.ezip');
+      
+      // 如果输出路径是目录，则添加文件名（去掉.ezip后缀）
+      if (fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory()) {
+        outputPath = path.join(outputPath, srcName);
+      }
+
+      console.log('正在解密解压...');
+      await Encrypted.decryptAndDecompress(src, outputPath);
+      console.log(`文件已解密到: ${outputPath}`);
+    } catch (error) {
+      console.error('操作失败:', error.message);
+      process.exit(1);
+    }
+  });
+
 
 // 解析命令行参数
 program.parse(process.argv);
