@@ -1,145 +1,353 @@
 #!/usr/bin/env node
-const {program} = require('commander');
-const shell = require('shelljs');
+
+const { program } = require('commander');
 const fs = require('fs');
 const path = require('path');
-const inquirer = require('inquirer');
+const { execSync,spawn } = require('child_process');
 
-program
-  .version('1.0.0')
-  .description('EternoCLI - 项目管理和Git工具');
+const { transformFile, getSupportedConversions } = require('./Src/transform');
+// 在文件顶部添加加密解密模块的引入
+const { 
+  generateKeyAndIV, 
+  encrypt, 
+  decrypt, 
+  processFile, 
+  getSupportedAlgorithms 
+} = require('./Src/code');
+
+// 默认项目结构
+const defaultDirs = ['Bitmap', 'Hardware', 'Software', 'References'];
+const defaultFiles = ['Readme.md', '.gitignore'];
+
+// 包信息
+const packageJson = require('./package.json');
+program.version(packageJson.version);
 
 // 创建项目命令
 program
-  .command('create')
-  .description('创建新项目')
-  .requiredOption('-t, --template <projectname>', '项目名称')
-  .action((options) => {
-    const projectName = options.template;
-    const directories = [
-      'DataSheet',
-      'References',
-      'Hardware',
-      'Software',
-      'Bitmap'
-    ];
-
-    // 创建项目目录
-    if (fs.existsSync(projectName)) {
-      console.log(`项目 ${projectName} 已存在`);
-      return;
-    }
-
-    fs.mkdirSync(projectName);
-    directories.forEach(dir => {
-      fs.mkdirSync(path.join(projectName, dir));
-    });
-
-    // 创建Readme.md
-    fs.writeFileSync(
-      path.join(projectName, 'Readme.md'),
-      `# ${projectName}\n\n项目描述...\n`
-    );
-
-    console.log(`项目 ${projectName} 创建成功`);
-  });
-
-// Git命令
-program
-  .command('git')
-  .description('Git操作')
-  .option('--action <action>', 'Git提交操作')
-  .option('--init', '初始化Git仓库')
-  .option('--pull <url>', '从远程仓库拉取')
-  .option('--false', '不执行push操作', false)
-  .option('--true', '执行push操作', false)
-  .option('--url <url>', '远程仓库URL')
-  .action((options) => {
-    if (options.action) {
-      // 提交操作
-      shell.exec('git add .');
-      shell.exec(`git commit -m "${options.action}"`);
-      if (options.true) {
-        shell.exec('git push origin main');
-      }
-    } else if (options.init) {
-      // 初始化操作
-      shell.exec('git init');
-      shell.exec('git add .');
-      shell.exec('git commit -m "first commit"');
+  .command('create <name>')
+  .description('创建新项目结构')
+  .option('-d, --dir <path>', '指定项目目录', '.')
+  .option('-a, --add <items>', '添加额外的目录/文件', '')
+  .option('-r, --remove <items>', '移除默认目录/文件', '')
+  .action((name, options) => {
+    try {
+      // 确定项目路径
+      const projectPath = path.resolve(options.dir, name);
       
-      if (options.true && options.url) {
-        shell.exec('git branch -M main');
-        shell.exec(`git remote add origin ${options.url}`);
-        shell.exec('git push -u origin main');
+      // 创建项目目录
+      if (!fs.existsSync(projectPath)) {
+        fs.mkdirSync(projectPath, { recursive: true });
       }
-    } else if (options.pull) {
-      // 拉取操作
-      shell.exec('git init');
-      shell.exec('git branch -M main');
-      shell.exec(`git remote add origin ${options.pull}`);
-      shell.exec('git pull origin main');
-    }
-  });
-
-// 状态管理命令
-program
-  .command('status')
-  .description('项目状态管理')
-  .option('--create', '创建状态文件')
-  .option('--update', '更新状态信息')
-  .option('-P, --project <message>', '更新项目信息')
-  .option('-M, --mcu <message>', '更新MCU信息')
-  .option('-H, --hardware <message>', '更新硬件信息')
-  .option('-S, --software <message>', '更新软件信息')
-  .action(async (options) => {
-    const statusFile = '.eternostatus';
-
-    if (options.create) {
-      const answers = await inquirer.prompt([
-        { type: 'input', name: 'project', message: 'ProjectName:' },
-        { type: 'input', name: 'mcu', message: 'MCU:' },
-        { type: 'input', name: 'hardware', message: 'Hardware:' },
-        { type: 'input', name: 'software', message: 'Software:' }
-      ]);
-
-      fs.writeFileSync(statusFile, JSON.stringify(answers, null, 2));
-      console.log('状态文件已创建');
-    } else if (options.update) {
-      if (!fs.existsSync(statusFile)) {
-        console.log('请先创建状态文件');
-        return;
+      
+      // 处理要添加/移除的目录
+      const dirsToCreate = [...defaultDirs];
+      const filesToCreate = [...defaultFiles];
+      
+      // 如果指定了移除项，则移除
+      if (options.remove) {
+        const itemsToRemove = options.remove.split(',');
+        itemsToRemove.forEach(item => {
+          const dirIndex = dirsToCreate.indexOf(item);
+          if (dirIndex !== -1) dirsToCreate.splice(dirIndex, 1);
+          
+          const fileIndex = filesToCreate.indexOf(item);
+          if (fileIndex !== -1) filesToCreate.splice(fileIndex, 1);
+        });
       }
-
-      const currentStatus = JSON.parse(fs.readFileSync(statusFile));
-      const updates = {
-        project: options.project,
-        mcu: options.mcu,
-        hardware: options.hardware,
-        software: options.software
-      };
-
-      Object.keys(updates).forEach(key => {
-        if (updates[key]) {
-          currentStatus[key] = updates[key];
+      
+      // 如果指定了添加项，则添加
+      if (options.add) {
+        const itemsToAdd = options.add.split(',');
+        itemsToAdd.forEach(item => {
+          if (item.includes('.')) {
+            filesToCreate.push(item);
+          } else {
+            dirsToCreate.push(item);
+          }
+        });
+      }
+      
+      // 创建目录
+      dirsToCreate.forEach(dir => {
+        const dirPath = path.join(projectPath, dir);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+          console.log(`已创建目录: ${dir}`);
         }
       });
-
-      fs.writeFileSync(statusFile, JSON.stringify(currentStatus, null, 2));
-      console.log('状态已更新');
-    } else {
-      // 查看状态
-      if (fs.existsSync(statusFile)) {
-        const status = JSON.parse(fs.readFileSync(statusFile));
-        console.log('\n当前项目状态:');
-        console.log(`项目名称: ${status.project}`);
-        console.log(`MCU: ${status.mcu}`);
-        console.log(`硬件版本: ${status.hardware}`);
-        console.log(`软件版本: ${status.software}`);
-      } else {
-        console.log('请先创建状态文件 (使用 --create 选项)');
-      }
+      
+      // 创建文件
+      filesToCreate.forEach(file => {
+        const filePath = path.join(projectPath, file);
+        if (!fs.existsSync(filePath)) {
+          if (file === 'Readme.md') {
+            fs.writeFileSync(filePath, `# ${name}\n\n项目描述写在这里。`);
+          } else if (file === '.gitignore') {
+            fs.writeFileSync(filePath, 'node_modules/\n.env\n.DS_Store\n');
+          } else {
+            fs.writeFileSync(filePath, '');
+          }
+          console.log(`已创建文件: ${file}`);
+        }
+      });
+      
+      // 创建项目JSON文件
+      const projectJson = {
+        projectName: name,
+        creationDate: new Date().toISOString().split('T')[0],
+        lastUpdateDate: new Date().toISOString().split('T')[0],
+        changelog: [
+          {
+            version: "1.0.0",
+            updateDate: new Date().toISOString().split('T')[0],
+            info: "初始版本，包含核心功能"
+          }
+        ]
+      };
+      
+      const jsonPath = path.join(projectPath, `${name}.json`);
+      fs.writeFileSync(jsonPath, JSON.stringify(projectJson, null, 2));
+      console.log(`已创建项目文件: ${name}.json`);
+      
+      console.log(`项目 "${name}" 已成功创建于 ${projectPath}`);
+    } catch (error) {
+      console.error('创建项目时出错:', error.message);
     }
   });
 
+// 更新项目命令
+program
+  .command('update')
+  .description('更新项目并提交更改')
+  .option('-m, --message <message>', '提交信息')
+  .option('-v, --version <version>', '版本号')
+  .action((options) => {
+    try {
+      // 查找项目JSON文件
+      const files = fs.readdirSync(process.cwd());
+      const jsonFile = files.find(f => f.endsWith('.json') && f !== 'package.json');
+      
+      if (!jsonFile) {
+        console.error('当前目录中未找到项目JSON文件');
+        return;
+      }
+      
+      const projectData = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+      
+      // 更新项目数据
+      projectData.lastUpdateDate = new Date().toISOString().split('T')[0];
+      
+      if (options.version) {
+        projectData.changelog.push({
+          version: options.version,
+          updateDate: new Date().toISOString().split('T')[0],
+          info: options.message || "更新"
+        });
+      }
+      
+      // 写入更新后的项目数据
+      fs.writeFileSync(jsonFile, JSON.stringify(projectData, null, 2));
+      
+      // 执行Git命令
+      execSync('git add .', { stdio: 'inherit' });
+      execSync(`git commit -m "${options.message || '更新'}"`, { stdio: 'inherit' });
+      
+      console.log('项目已成功更新并提交');
+    } catch (error) {
+      console.error('更新项目时出错:', error.message);
+    }
+  });
+
+// Git初始化命令
+program
+  .command('git-init')
+  .description('初始化git仓库并设置远程仓库')
+  .option('-u, --url <url>', '远程仓库URL')
+  .action((options) => {
+    try {
+      execSync('git init', { stdio: 'inherit' });
+      execSync('git add .', { stdio: 'inherit' });
+      execSync('git commit -m "首次提交"', { stdio: 'inherit' });
+      
+      if (options.url) {
+        execSync('git branch -M main', { stdio: 'inherit' });
+        execSync(`git remote add origin ${options.url}`, { stdio: 'inherit' });
+        execSync('git push -u origin main', { stdio: 'inherit' });
+        console.log(`Git仓库已初始化并推送至 ${options.url}`);
+      } else {
+        console.log('Git仓库已在本地初始化');
+      }
+    } catch (error) {
+      console.error('初始化Git仓库时出错:', error.message);
+    }
+  });
+
+// 文件转换命令
+program
+  .command('transform <sourcefile>')
+  .description('转换文件格式')
+  .requiredOption('-t, --type <type>', '目标格式')
+  .option('-o, --output <outputpath>', '输出路径')
+  .action(async (sourcefile, options) => {
+    try {
+      await transformFile(sourcefile, options.type, options.output);
+    } catch (error) {
+      console.error(error.message);
+      process.exit(1);
+    }
+  });
+
+// 查看支持的转换格式命令
+program
+  .command('transform-formats')
+  .description('查看支持的转换格式')
+  .action(() => {
+    const supportedConversions = getSupportedConversions();
+    console.log('支持的转换格式:');
+    
+    Object.entries(supportedConversions).forEach(([from, to]) => {
+      console.log(`  ${from} -> ${to.join(', ')}`);
+    });
+  });
+
+// 文件比较命令
+program
+  .command('compare <file1> <file2>')
+  .description('比较两个文件的内容')
+  .option('-m, --mode <mode>', '比较模式 (content, binary, size)', 'content')
+  .action((file1, file2, options) => {
+    // 实现文件比较
+    console.log(`比较 ${file1} 和 ${file2}`);
+  });
+
+// 密码生成命令
+program
+  .command('generate-password')
+  .description('生成随机密码')
+  .option('-l, --length <length>', '密码长度', '16')
+  .option('-c, --complexity <complexity>', '复杂度 (low, medium, high)', 'medium')
+  .action((options) => {
+    // 实现密码生成功能
+    console.log('生成随机密码');
+  });
+
+// 在已有的命令后面添加加密解密命令
+program
+  .command('cryption')
+  .description('加密或解密数据')
+  .option('-e, --encrypt', '加密模式')
+  .option('-d, --decrypt', '解密模式')
+  .option('-t, --type <algorithm>', '加密/解密算法', 'aes-256-cbc')
+  .option('-k, --key <key>', '加密密钥（十六进制字符串）')
+  .option('-i, --iv <iv>', '初始化向量（十六进制字符串，某些算法需要）')
+  .option('-f, --file', '处理文件而不是文本')
+  .option('-o, --output <output>', '输出文件路径')
+  .argument('[data]', '要加密/解密的文本或文件路径')
+  .action(async (data, options) => {
+    try {
+      // 验证参数
+      if (!options.encrypt && !options.decrypt) {
+        console.error('错误: 必须指定加密(-e)或解密(-d)模式');
+        process.exit(1);
+      }
+      
+      if (options.encrypt && options.decrypt) {
+        console.error('错误: 不能同时指定加密和解密模式');
+        process.exit(1);
+      }
+      
+      // 获取支持的算法列表
+      const supportedAlgorithms = getSupportedAlgorithms();
+      if (!supportedAlgorithms.includes(options.type)) {
+        console.error(`错误: 不支持的算法 "${options.type}"`);
+        console.error(`支持的算法: ${supportedAlgorithms.join(', ')}`);
+        process.exit(1);
+      }
+      
+      const operation = options.encrypt ? 'encrypt' : 'decrypt';
+      
+      // 处理文件
+      if (options.file) {
+        if (!data) {
+          console.error('错误: 文件模式下必须提供输入文件路径');
+          process.exit(1);
+        }
+        
+        if (!options.output) {
+          console.error('错误: 文件模式下必须指定输出文件路径(-o)');
+          process.exit(1);
+        }
+        
+        // 如果没有提供密钥，生成一个
+        let key = options.key;
+        let iv = options.iv;
+        
+        if (!key) {
+          const keyData = generateKeyAndIV(options.type);
+          key = keyData.key.toString('hex');
+          iv = keyData.iv ? keyData.iv.toString('hex') : null;
+          
+          console.log(`生成的密钥: ${key}`);
+          if (iv) console.log(`生成的IV: ${iv}`);
+          console.log('请妥善保存这些值，解密时需要它们');
+        }
+        
+        await processFile(data, options.output, operation, options.type, key, iv);
+        console.log(`文件${operation === 'encrypt' ? '加密' : '解密'}成功: ${options.output}`);
+      } 
+      // 处理文本
+      else {
+        if (!data) {
+          console.error('错误: 必须提供要加密/解密的文本');
+          process.exit(1);
+        }
+        
+        if (operation === 'encrypt') {
+          // 如果没有提供密钥，生成一个
+          let key = options.key;
+          let iv = options.iv;
+          
+          if (!key) {
+            const keyData = generateKeyAndIV(options.type);
+            key = keyData.key.toString('hex');
+            iv = keyData.iv ? keyData.iv.toString('hex') : null;
+          }
+          
+          const result = encrypt(data, options.type, Buffer.from(key, 'hex'), iv ? Buffer.from(iv, 'hex') : null);
+          
+          console.log(`加密结果: ${result.encryptedData}`);
+          console.log(`使用的密钥: ${result.key}`);
+          if (result.iv) console.log(`使用的IV: ${result.iv}`);
+          console.log(`算法: ${result.algorithm}`);
+        } else {
+          // 解密模式
+          if (!options.key) {
+            console.error('错误: 解密模式必须提供密钥(-k)');
+            process.exit(1);
+          }
+          
+          const decrypted = decrypt(data, options.type, options.key, options.iv);
+          console.log(`解密结果: ${decrypted}`);
+        }
+      }
+    } catch (error) {
+      console.error(`加密/解密过程中出错: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+// 添加查看支持算法的命令
+program
+  .command('cryption-algorithms')
+  .description('查看支持的加密算法')
+  .action(() => {
+    const algorithms = getSupportedAlgorithms();
+    console.log('支持的加密算法:');
+    algorithms.forEach(algorithm => {
+      console.log(`  - ${algorithm}`);
+    });
+  });
+
+// 解析命令行参数
 program.parse(process.argv);

@@ -25,72 +25,59 @@ npm link
 
 #### (1) Project Section:
 
-Content of name.json:
-
-```json
-{
-  "projectName": "Example Project",
-  "creationDate": "2023-01-15",
-  "lastUpdateDate": "2023-10-07",
-  "changelog": [
-    {
-      "version": "1.0.0",
-      "updateDate": "2023-01-15",
-      "info": "Initial release with core features"
-    },
-    {
-      "version": "1.1.0",
-      "updateDate": "2023-03-22",
-      "info": "Added user permission management module, fixed known issues"
-    },
-    {
-      "version": "2.0.0",
-      "updateDate": "2023-10-07",
-      "info": "UI redesign, added multilingual support, performance optimization"
-    }
-  ]
-}
-```
+#### Create Project Command
 
 ```shell
-eternocli create <name> -<./dir> +<./dir>
+eternocli create <name> -a <items> -r <items>
 ```
 
-Create a project structure named "name," including the following folders (Bitmap, Hardware, Software, References, etc.) and the following files (Readme.md, .gitignore, name.json).
+Creates a project structure with the specified name, including default directories (Bitmap, Hardware, Software, References) and files ([Readme.md](https://readme.md/), .gitignore, name.json).
 
-Additional configurations with - and + can be used to add or remove specific files.
+Options:
+
+- `-a, --add <items>`: Add additional directories/files (comma-separated)
+- `-r, --remove <items>`: Remove default directories/files (comma-separated)
+
+Example:
 
 ```shell
-eternocli update -m <message>
-```
-Execute the following commands:
-
-```shell
-git add .
-git commit -m <message>
-Also update the content of name.json.
+eternocli create my-project -a "docs,src/components" -r "References"
 ```
 
+#### Update Project Command
+
 ```shell
-eternocli git init -u <url>
+eternocli update -m <message> -v <version>
 ```
 
-Execute the following commands:
+Updates the project's JSON file and executes git commands to commit changes.
+
+Options:
+
+- `-m, --message <message>`: Commit message
+- `-v, --version <version>`: Version number for changelog
+
+Example:
 
 ```shell
-git init
-git add .
-git commit -m "First Commit"
-git branch -M main
-git remote add origin <url>
-git push -u origin main
+eternocli update -m "Added user authentication" -v "1.2.0"
 ```
 
-If no URL is provided, execute:
+#### Git Init Command
 
 ```shell
-git init
-git add .
-git commit -m "First Commit"
+eternocli git-init -u <url>
+```
+
+Initializes a git repository, commits all files, and optionally sets up a remote origin.
+
+Options:
+
+- `-u, --url <url>`: Remote repository URL (optional)
+
+Example:
+
+```shell
+eternocli git-init -u git@github.com:username/repository.git
 ```
 

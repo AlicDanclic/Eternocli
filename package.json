@@ -13,9 +13,15 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "cli-progress": "^3.12.0",
     "commander": "^14.0.0",
+    "ebook-convert": "^2.0.1",
+    "fs-extra": "^11.3.1",
     "git-clone": "^0.2.0",
     "inquirer": "^12.9.4",
+    "pdf-parse": "^1.1.1",
+    "pdf-poppler": "^0.2.1",
+    "sharp": "^0.34.3",
     "shelljs": "^0.10.0"
   }
 }
