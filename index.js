@@ -7,7 +7,7 @@ const { execSync,spawn } = require('child_process');
 
 const { setAutostartLink, setAutostartExe } = require('./src/autostart');
 const { exec } = require('child_process');
-const { getMediaDetails } = require('./Src/vmdetail');
+const { getMediaDetails, formatDuration } = require('./Src/vmdetail');
 const { generateQRCode, generateBarcode } = require('./Src/qr');
 const Encrypted = require('./Src/Encrypted');
 const { transformFile, getSupportedConversions } = require('./Src/transform');
