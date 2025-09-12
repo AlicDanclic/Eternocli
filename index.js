@@ -5,6 +5,10 @@ const fs = require('fs');
 const path = require('path');
 const { execSync,spawn } = require('child_process');
 
+const { setAutostartLink, setAutostartExe } = require('./src/autostart');
+const { exec } = require('child_process');
+const { getMediaDetails } = require('./Src/vmdetail');
+const { generateQRCode, generateBarcode } = require('./Src/qr');
 const Encrypted = require('./Src/Encrypted');
 const { transformFile, getSupportedConversions } = require('./Src/transform');
 // 在文件顶部添加加密解密模块的引入
@@ -501,6 +505,159 @@ program
     }
   });
 
+program
+  .command('qrcode')
+  .description('Generate QR code or barcode')
+  .option('-t, --qrcode', 'Generate QR code')
+  .option('-s, --barcode', 'Generate barcode')
+  .option('-m, --message <message>', 'Text message to encode')
+  .option('-u, --url <url>', 'URL to encode')
+  .option('-o, --output <path>', 'Output file path')
+  .action(async (options) => {
+    try {
+      // 验证参数
+      if (!options.qrcode && !options.barcode) {
+        console.error('Error: Please specify either -t for QR code or -s for barcode');
+        process.exit(1);
+      }
 
+      if (!options.message && !options.url) {
+        console.error('Error: Please provide either a message with -m or a URL with -u');
+        process.exit(1);
+      }
+
+      if (!options.output) {
+        console.error('Error: Please specify an output path with -o');
+        process.exit(1);
+      }
+
+      const content = options.message || options.url;
+
+      if (options.qrcode) {
+        await generateQRCode(content, options.output);
+        console.log(`QR code generated successfully at ${options.output}`);
+      } else if (options.barcode) {
+        await generateBarcode(content, options.output);
+        console.log(`Barcode generated successfully at ${options.output}`);
+      }
+    } catch (error) {
+      console.error('Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+
+// 自启动命令
+program
+  .command('autostart')
+  .description('Set up autostart for Windows')
+  .option('-l, --link <path>', 'Set autostart using a link file')
+  .option('-r, --exe <path>', 'Set autostart using an exe file (creates link first)')
+  .action((options) => {
+    if (options.link) {
+      setAutostartLink(options.link);
+    } else if (options.exe) {
+      setAutostartExe(options.exe);
+    } else {
+      console.log('Please specify either -l for link file or -r for exe file');
+    }
+  });
+
+// 关机命令
+program
+  .command('shutdown')
+  .description('Shutdown management commands')
+  .option('-n, --now', 'Shutdown immediately')
+  .option('-t, --timer <minutes>', 'Shutdown after specified minutes', parseInt)
+  .option('-c, --cancel', 'Cancel scheduled shutdown')
+  .action((options) => {
+    if (options.now) {
+      shutdownNow();
+    } else if (options.timer) {
+      scheduleShutdown(options.timer);
+    } else if (options.cancel) {
+      cancelShutdown();
+    } else {
+      console.log('Please specify a shutdown option: -n/--now, -t/--timer, or -c/--cancel');
+    }
+  });
+
+// 立即关机函数
+function shutdownNow() {
+  console.log('Shutting down now...');
+  exec('shutdown /s /f /t 0', (error) => {
+    if (error) {
+      console.error(`Error executing shutdown: ${error}`);
+    }
+  });
+}
+
+// 定时关机函数
+function scheduleShutdown(minutes) {
+  const seconds = minutes * 60;
+  console.log(`Scheduling shutdown in ${minutes} minutes...`);
+  exec(`shutdown /s /f /t ${seconds}`, (error) => {
+    if (error) {
+      console.error(`Error scheduling shutdown: ${error}`);
+    } else {
+      console.log(`Shutdown scheduled in ${minutes} minutes. Use 'eternocli shutdown --cancel' to cancel.`);
+    }
+  });
+}
+
+// 取消关机函数
+function cancelShutdown() {
+  console.log('Cancelling scheduled shutdown...');
+  exec('shutdown /a', (error) => {
+    if (error) {
+      console.error(`Error cancelling shutdown: ${error}`);
+    } else {
+      console.log('Scheduled shutdown cancelled.');
+    }
+  });
+}
+
+program
+  .command('vmdetail')
+  .description('显示媒体文件详细信息')
+  .option('-v, --video <path>', '视频文件路径')
+  .option('-m, --audio <path>', '音频文件路径')
+  .action((options) => {
+    const path = options.video || options.audio;
+    if (!path) {
+      console.error('错误：请提供音频或视频文件路径');
+      process.exit(1);
+    }
+    
+    getMediaDetails(path)
+      .then(details => {
+        console.log('媒体文件详细信息:');
+        console.log('=================');
+        console.log(`文件路径: ${details.path}`);
+        console.log(`格式: ${details.format}`);
+        console.log(`时长: ${details.duration} 秒`);
+        console.log(`大小: ${details.size} 字节`);
+        
+        if (details.video) {
+          console.log('\n视频信息:');
+          console.log(`  编码: ${details.video.codec}`);
+          console.log(`  分辨率: ${details.video.resolution}`);
+          console.log(`  帧率: ${details.video.fps} fps`);
+          console.log(`  比特率: ${details.video.bitrate} kbps`);
+        }
+        
+        if (details.audio) {
+          console.log('\n音频信息:');
+          console.log(`  编码: ${details.audio.codec}`);
+          console.log(`  采样率: ${details.audio.sampleRate} Hz`);
+          console.log(`  声道: ${details.audio.channels}`);
+          console.log(`  比特率: ${details.audio.bitrate} kbps`);
+        }
+      })
+      .catch(error => {
+        console.error('获取媒体信息时出错:', error.message);
+        process.exit(1);
+      });
+  });
 // 解析命令行参数
 program.parse(process.argv);
