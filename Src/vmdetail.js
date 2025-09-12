@@ -1,25 +1,6 @@
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 
-/**
- * 格式化时长为 HH:MM:SS 格式
- * @param {number} seconds 总秒数
- * @returns {string} 格式化后的时长字符串
- */
-function formatDuration(seconds) {
-  if (!seconds || seconds < 0) return '00:00:00';
-  
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  
-  return [
-    hours.toString().padStart(2, '0'),
-    minutes.toString().padStart(2, '0'),
-    secs.toString().padStart(2, '0')
-  ].join(':');
-}
-
 
 /**
  * 获取媒体文件详细信息

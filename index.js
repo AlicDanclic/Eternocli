@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+/**begin 导入模块**/
+/**
+ * 导入所需的核心模块和第三方模块
+ * @module 导入模块
+ */
 const { program } = require('commander');
 const fs = require('fs');
 const path = require('path');
@@ -7,7 +12,7 @@ const { execSync,spawn } = require('child_process');
 
 const { setAutostartLink, setAutostartExe } = require('./src/autostart');
 const { exec } = require('child_process');
-const { getMediaDetails, formatDuration } = require('./Src/vmdetail');
+const { getMediaDetails} = require('./Src/vmdetail');
 const { generateQRCode, generateBarcode } = require('./Src/qr');
 const Encrypted = require('./Src/Encrypted');
 const { transformFile, getSupportedConversions } = require('./Src/transform');
@@ -20,16 +25,31 @@ const {
   getSupportedAlgorithms 
 } = require('./Src/code');
 const CompressionTool = require('./Src/zip');
+/**end 导入模块**/
 
-// 默认项目结构
+/**begin 默认配置**/
+/**
+ * 默认项目结构和文件配置
+ * @module 默认配置
+ */
 const defaultDirs = ['Bitmap', 'Hardware', 'Software', 'References'];
 const defaultFiles = ['Readme.md', '.gitignore'];
+/**end 默认配置**/
 
-// 包信息
+/**begin 程序基本信息**/
+/**
+ * 程序版本信息和基本配置
+ * @module 程序基本信息
+ */
 const packageJson = require('./package.json');
 program.version(packageJson.version);
+/**end 程序基本信息**/
 
-// 创建项目命令
+/**begin 创建项目命令**/
+/**
+ * 创建新项目结构的命令实现
+ * @module 创建项目命令
+ */
 program
   .command('create <name>')
   .description('创建新项目结构')
@@ -121,8 +141,13 @@ program
       console.error('创建项目时出错:', error.message);
     }
   });
+/**end 创建项目命令**/
 
-// 更新项目命令
+/**begin 更新项目命令**/
+/**
+ * 更新项目并提交更改的命令实现
+ * @module 更新项目命令
+ */
 program
   .command('update')
   .description('更新项目并提交更改')
@@ -164,8 +189,13 @@ program
       console.error('更新项目时出错:', error.message);
     }
   });
+/**end 更新项目命令**/
 
-// Git初始化命令
+/**begin Git初始化命令**/
+/**
+ * 初始化git仓库并设置远程仓库的命令实现
+ * @module Git初始化命令
+ */
 program
   .command('git-init')
   .description('初始化git仓库并设置远程仓库')
@@ -188,8 +218,13 @@ program
       console.error('初始化Git仓库时出错:', error.message);
     }
   });
+/**end Git初始化命令**/
 
-// 文件转换命令
+/**begin 文件转换命令**/
+/**
+ * 文件格式转换命令实现
+ * @module 文件转换命令
+ */
 program
   .command('transform <sourcefile>')
   .description('转换文件格式')
@@ -203,8 +238,13 @@ program
       process.exit(1);
     }
   });
+/**end 文件转换命令**/
 
-// 查看支持的转换格式命令
+/**begin 查看支持的转换格式命令**/
+/**
+ * 查看支持的转换格式命令实现
+ * @module 查看支持的转换格式命令
+ */
 program
   .command('transform-formats')
   .description('查看支持的转换格式')
@@ -216,8 +256,13 @@ program
       console.log(`  ${from} -> ${to.join(', ')}`);
     });
   });
+/**end 查看支持的转换格式命令**/
 
-// 文件比较命令
+/**begin 文件比较命令**/
+/**
+ * 文件比较命令实现
+ * @module 文件比较命令
+ */
 program
   .command('compare <file1> <file2>')
   .description('比较两个文件的内容')
@@ -226,8 +271,13 @@ program
     // 实现文件比较
     console.log(`比较 ${file1} 和 ${file2}`);
   });
+/**end 文件比较命令**/
 
-// 密码生成命令
+/**begin 密码生成命令**/
+/**
+ * 密码生成命令实现
+ * @module 密码生成命令
+ */
 program
   .command('generate-password')
   .description('生成随机密码')
@@ -237,8 +287,13 @@ program
     // 实现密码生成功能
     console.log('生成随机密码');
   });
+/**end 密码生成命令**/
 
-// 在已有的命令后面添加加密解密命令
+/**begin 加密解密命令**/
+/**
+ * 加密解密命令实现
+ * @module 加密解密命令
+ */
 program
   .command('cryption')
   .description('加密或解密数据')
@@ -342,8 +397,13 @@ program
       process.exit(1);
     }
   });
+/**end 加密解密命令**/
 
-// 添加查看支持算法的命令
+/**begin 查看支持的加密算法命令**/
+/**
+ * 查看支持的加密算法命令实现
+ * @module 查看支持的加密算法命令
+ */
 program
   .command('cryption-algorithms')
   .description('查看支持的加密算法')
@@ -354,8 +414,13 @@ program
       console.log(`  - ${algorithm}`);
     });
   });
+/**end 查看支持的加密算法命令**/
 
-// ZIP 命令
+/**begin ZIP命令**/
+/**
+ * ZIP压缩操作命令实现
+ * @module ZIP命令
+ */
 program
   .command('zip')
   .description('ZIP 压缩操作')
@@ -388,8 +453,13 @@ program
       process.exit(1);
     }
   });
+/**end ZIP命令**/
 
-// 7z 命令
+/**begin 7z命令**/
+/**
+ * 7z压缩操作命令实现
+ * @module 7z命令
+ */
 program
   .command('7z')
   .description('7z 压缩操作')
@@ -422,8 +492,13 @@ program
       process.exit(1);
     }
   });
+/**end 7z命令**/
 
-// RAR 命令
+/**begin RAR命令**/
+/**
+ * RAR压缩操作命令实现
+ * @module RAR命令
+ */
 program
   .command('rar')
   .description('RAR 压缩操作')
@@ -456,7 +531,13 @@ program
       process.exit(1);
     }
   });
+/**end RAR命令**/
 
+/**begin 加密压缩命令**/
+/**
+ * 加密压缩命令实现
+ * @module 加密压缩命令
+ */
 program
   .command('ezip <src>')
   .description('压缩并加密文件')
@@ -480,7 +561,13 @@ program
       process.exit(1);
     }
   });
+/**end 加密压缩命令**/
 
+/**begin 解密解压命令**/
+/**
+ * 解密解压命令实现
+ * @module 解密解压命令
+ */
 program
   .command('dezip <src>')
   .description('解密并解压文件')
@@ -504,7 +591,13 @@ program
       process.exit(1);
     }
   });
+/**end 解密解压命令**/
 
+/**begin 二维码条形码命令**/
+/**
+ * 二维码和条形码生成命令实现
+ * @module 二维码条形码命令
+ */
 program
   .command('qrcode')
   .description('Generate QR code or barcode')
@@ -545,9 +638,13 @@ program
       process.exit(1);
     }
   });
+/**end 二维码条形码命令**/
 
-
-// 自启动命令
+/**begin 自启动命令**/
+/**
+ * 自启动设置命令实现
+ * @module 自启动命令
+ */
 program
   .command('autostart')
   .description('Set up autostart for Windows')
@@ -562,8 +659,13 @@ program
       console.log('Please specify either -l for link file or -r for exe file');
     }
   });
+/**end 自启动命令**/
 
-// 关机命令
+/**begin 关机命令**/
+/**
+ * 关机管理命令实现
+ * @module 关机命令
+ */
 program
   .command('shutdown')
   .description('Shutdown management commands')
@@ -582,7 +684,10 @@ program
     }
   });
 
-// 立即关机函数
+/**
+ * 立即关机函数
+ * @function shutdownNow
+ */
 function shutdownNow() {
   console.log('Shutting down now...');
   exec('shutdown /s /f /t 0', (error) => {
@@ -592,7 +697,11 @@ function shutdownNow() {
   });
 }
 
-// 定时关机函数
+/**
+ * 定时关机函数
+ * @function scheduleShutdown
+ * @param {number} minutes 关机延迟分钟数
+ */
 function scheduleShutdown(minutes) {
   const seconds = minutes * 60;
   console.log(`Scheduling shutdown in ${minutes} minutes...`);
@@ -605,7 +714,10 @@ function scheduleShutdown(minutes) {
   });
 }
 
-// 取消关机函数
+/**
+ * 取消关机函数
+ * @function cancelShutdown
+ */
 function cancelShutdown() {
   console.log('Cancelling scheduled shutdown...');
   exec('shutdown /a', (error) => {
@@ -616,7 +728,13 @@ function cancelShutdown() {
     }
   });
 }
+/**end 关机命令**/
 
+/**begin 媒体文件信息命令**/
+/**
+ * 媒体文件信息显示命令实现
+ * @module 媒体文件信息命令
+ */
 program
   .command('vmdetail')
   .description('显示媒体文件详细信息')
@@ -636,7 +754,7 @@ program
         console.log(`文件路径: ${details.path}`);
         console.log(`格式: ${details.format}`);
         console.log(`时长: ${formatDuration(details.duration)}`);
-        console.log(`大小: ${details.size} 字节`);
+        console.log(`大小:  ${formatSize(details.size)}`);
         
         if (details.video) {
           console.log('\n视频信息:');
@@ -659,5 +777,58 @@ program
         process.exit(1);
       });
   });
+/**end 媒体文件信息命令**/
+
+/**begin 工具函数**/
+/**
+ * 工具函数集合
+ * @module 工具函数
+ */
+
+/**
+ * 格式化时长为 HH:MM:SS 格式
+ * @param {number} seconds 总秒数
+ * @returns {string} 格式化后的时长字符串
+ */
+function formatDuration(seconds) {
+  if (!seconds || seconds < 0) return '00:00:00';
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  return [
+    hours.toString().padStart(2, '0'),
+    minutes.toString().padStart(2, '0'),
+    secs.toString().padStart(2, '0')
+  ].join(':');
+}
+
+/**
+ * 格式化文件大小为最佳单位
+ * @param {number} bytes 文件大小（字节）
+ * @returns {string} 格式化后的文件大小字符串
+ */
+function formatSize(bytes) {
+  if (!bytes || bytes < 0) return '0 B';
+  
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const base = 1024;
+  
+  // 计算应该使用哪个单位
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(base)), units.length - 1);
+  const value = bytes / Math.pow(base, exponent);
+  
+  // 格式化数值，保留2位小数
+  return `${value.toFixed(2)} ${units[exponent]}`;
+}
+/**end 工具函数**/
+
+/**begin 程序入口**/
+/**
+ * 程序入口点
+ * @module 程序入口
+ */
 // 解析命令行参数
 program.parse(process.argv);
+/**end 程序入口**/
