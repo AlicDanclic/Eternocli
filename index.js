@@ -635,7 +635,7 @@ program
         console.log('=================');
         console.log(`文件路径: ${details.path}`);
         console.log(`格式: ${details.format}`);
-        console.log(`时长: ${details.duration} 秒`);
+        console.log(`时长: ${formatDuration(details.duration)}`);
         console.log(`大小: ${details.size} 字节`);
         
         if (details.video) {
