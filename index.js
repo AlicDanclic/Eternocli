@@ -9,7 +9,7 @@ const { program } = require('commander');
 const fs = require('fs');
 const path = require('path');
 const { execSync,spawn } = require('child_process');
-
+const { renameImages } = require('./Src/renameUtils');
 const { setAutostartLink, setAutostartExe } = require('./src/autostart');
 const { exec } = require('child_process');
 const { getMediaDetails} = require('./Src/vmdetail');
@@ -32,7 +32,7 @@ const CompressionTool = require('./Src/zip');
  * 默认项目结构和文件配置
  * @module 默认配置
  */
-const defaultDirs = ['Bitmap', 'Hardware', 'Software', 'References'];
+const defaultDirs = ['Bitmap', 'Hardware', 'Software', 'References','DataSheet'];
 const defaultFiles = ['Readme.md', '.gitignore'];
 /**end 默认配置**/
 
@@ -823,6 +823,18 @@ function formatSize(bytes) {
   return `${value.toFixed(2)} ${units[exponent]}`;
 }
 /**end 工具函数**/
+
+/**begin 图片重命名**/
+program
+  .command('rename')
+  .description('批量重命名图片文件，按自然顺序从指定起始编号开始')
+  .requiredOption('-s, --src <dir>', '图片所在目录')
+  .requiredOption('-n, --num <number>', '起始编号')
+  .option('-f, --force', '跳过确认提示，直接执行', false)
+  .action((options) => {
+    renameImages(options.src, options.num, options.force);
+  });
+/**end  图片重命名**/
 
 /**begin 程序入口**/
 /**
