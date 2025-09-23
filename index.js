@@ -143,6 +143,198 @@ program
   });
 /**end 创建项目命令**/
 
+/**begin 查看项目信息命令**/
+/**
+ * 查看项目信息的命令实现
+ * @module 查看项目信息命令
+ */
+program
+  .command('view-project')
+  .description('查看项目JSON文件内容')
+  .option('-p, --path <path>', '指定项目JSON文件路径')  // 修改为 -p, --path
+  .option('-f, --full', '显示完整的项目信息')
+  .option('-c, --changelog', '只显示更新日志')
+  .option('-m, --summary', '只显示项目摘要')  // 修改为 -m, --summary
+  .action((options) => {
+    try {
+      let jsonPath;
+      
+      // 如果指定了路径，使用指定路径
+      if (options.path) {  // 修改为 options.path
+        jsonPath = path.resolve(options.path);
+      } else {
+        // 否则在当前目录查找项目JSON文件
+        const files = fs.readdirSync(process.cwd());
+        const jsonFiles = files.filter(f => 
+          f.endsWith('.json') && 
+          f !== 'package.json' && 
+          !f.includes('config')
+        );
+        
+        if (jsonFiles.length === 0) {
+          console.error('错误: 当前目录中未找到项目JSON文件');
+          console.log('提示: 使用 -p 参数指定项目JSON文件路径');
+          process.exit(1);
+        }
+        
+        if (jsonFiles.length > 1) {
+          console.log('找到多个JSON文件:');
+          jsonFiles.forEach((file, index) => {
+            console.log(`  ${index + 1}. ${file}`);
+          });
+          console.log('请使用 -p 参数指定要查看的文件');
+          process.exit(1);
+        }
+        
+        jsonPath = path.resolve(process.cwd(), jsonFiles[0]);
+      }
+      
+      // 检查文件是否存在
+      if (!fs.existsSync(jsonPath)) {
+        console.error(`错误: 文件不存在: ${jsonPath}`);
+        process.exit(1);
+      }
+      
+      // 读取并解析JSON文件
+      const projectData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      
+      // 根据选项显示不同的信息
+      if (options.changelog) {
+        displayChangelog(projectData);
+      } else if (options.summary) {
+        displaySummary(projectData, jsonPath);
+      } else {
+        displayFullProjectInfo(projectData, jsonPath, options.full);
+      }
+      
+    } catch (error) {
+      console.error('查看项目信息时出错:', error.message);
+      process.exit(1);
+    }
+  });
+/**end 查看项目信息命令**/
+
+/**begin 项目信息显示函数**/
+/**
+ * 显示完整的项目信息
+ * @param {Object} projectData 项目数据
+ * @param {string} filePath 文件路径
+ * @param {boolean} showFull 是否显示完整信息
+ */
+function displayFullProjectInfo(projectData, filePath, showFull = false) {
+  console.log('📁 项目信息');
+  console.log('==========');
+  console.log(`文件路径: ${filePath}`);
+  console.log(`项目名称: ${projectData.projectName || '未命名'}`);
+  console.log(`创建日期: ${projectData.creationDate || '未知'}`);
+  console.log(`最后更新: ${projectData.lastUpdateDate || '未知'}`);
+  
+  // 计算项目年龄（如果可能）
+  if (projectData.creationDate) {
+    const createDate = new Date(projectData.creationDate);
+    const today = new Date();
+    const diffTime = Math.abs(today - createDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    console.log(`项目年龄: ${diffDays} 天`);
+  }
+  
+  console.log(`\n📋 版本信息`);
+  console.log('==========');
+  if (projectData.changelog && projectData.changelog.length > 0) {
+    const latestVersion = projectData.changelog[projectData.changelog.length - 1];
+    console.log(`最新版本: ${latestVersion.version}`);
+    console.log(`版本数量: ${projectData.changelog.length}`);
+    
+    if (showFull) {
+      console.log('\n📖 完整更新日志:');
+      projectData.changelog.forEach((log, index) => {
+        console.log(`\n版本 ${log.version} (${log.updateDate})`);
+        console.log(`  ${log.info}`);
+      });
+    } else {
+      // 只显示最近3个版本
+      console.log('\n🕒 最近更新:');
+      const recentLogs = projectData.changelog.slice(-3);
+      recentLogs.forEach(log => {
+        console.log(`  ${log.version} (${log.updateDate}): ${log.info}`);
+      });
+      
+      if (projectData.changelog.length > 3) {
+        console.log(`  ... 还有 ${projectData.changelog.length - 3} 个更早的版本`);
+      }
+    }
+  } else {
+    console.log('暂无版本信息');
+  }
+  
+  // 显示其他自定义字段
+  const customFields = Object.keys(projectData).filter(key => 
+    !['projectName', 'creationDate', 'lastUpdateDate', 'changelog'].includes(key)
+  );
+  
+  if (customFields.length > 0) {
+    console.log('\n🔧 自定义字段:');
+    customFields.forEach(field => {
+      console.log(`  ${field}: ${JSON.stringify(projectData[field])}`);
+    });
+  }
+}
+
+/**
+ * 只显示更新日志
+ * @param {Object} projectData 项目数据
+ */
+function displayChangelog(projectData) {
+  console.log('📖 项目更新日志');
+  console.log('==============');
+  
+  if (projectData.changelog && projectData.changelog.length > 0) {
+    projectData.changelog.forEach((log, index) => {
+      console.log(`\n${index + 1}. 版本 ${log.version} (${log.updateDate})`);
+      console.log(`   更新内容: ${log.info}`);
+    });
+    
+    console.log(`\n总计: ${projectData.changelog.length} 个版本`);
+  } else {
+    console.log('暂无更新日志');
+  }
+}
+
+/**
+ * 显示项目摘要
+ * @param {Object} projectData 项目数据
+ * @param {string} filePath 文件路径
+ */
+function displaySummary(projectData, filePath) {
+  const projectName = projectData.projectName || path.basename(filePath, '.json');
+  const versionCount = projectData.changelog ? projectData.changelog.length : 0;
+  const latestVersion = projectData.changelog && projectData.changelog.length > 0 
+    ? projectData.changelog[projectData.changelog.length - 1].version 
+    : '无版本信息';
+  
+  console.log('🚀 项目摘要');
+  console.log('==========');
+  console.log(`项目: ${projectName}`);
+  console.log(`版本: ${latestVersion}`);
+  console.log(`创建: ${projectData.creationDate || '未知'}`);
+  console.log(`更新: ${projectData.lastUpdateDate || '未知'}`);
+  console.log(`版本数量: ${versionCount}`);
+  
+  // 简单的项目状态指示器
+  if (projectData.lastUpdateDate) {
+    const lastUpdate = new Date(projectData.lastUpdateDate);
+    const today = new Date();
+    const diffDays = Math.floor((today - lastUpdate) / (1000 * 60 * 60 * 24));
+    
+    let status = '🟢 活跃';
+    if (diffDays > 30) status = '🟡 一般';
+    if (diffDays > 90) status = '🔴 停滞';
+    
+    console.log(`项目状态: ${status} (${diffDays} 天前更新)`);
+  }
+}
+/**end 项目信息显示函数**/
+
 /**begin 更新项目命令**/
 /**
  * 更新项目并提交更改的命令实现
