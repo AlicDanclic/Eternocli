@@ -37,15 +37,28 @@ function collectImages(folder) {
   return imgs;
 }
 
+// 计算需要的位数宽度
+function calculateWidthNeeded(startNum, totalCount) {
+  const maxNum = startNum + totalCount - 1;
+  return Math.max(3, maxNum.toString().length); // 至少3位，根据最大值自动调整
+}
+
 // 构建新文件名
 function buildNewName(index, ext, width = 3) {
   return `${index.toString().padStart(width, '0')}${ext.toLowerCase()}`;
+}
+
+// 智能构建新文件名（自动计算位数）
+function buildSmartNewName(index, ext, startNum, totalCount) {
+  const width = calculateWidthNeeded(startNum, totalCount);
+  return buildNewName(index, ext, width);
 }
 
 // 执行重命名操作
 function executeRename(renamePlan) {
   let successCount = 0;
   let skipCount = 0;
+  let errorCount = 0;
   
   for (const { oldPath, newPath, newName } of renamePlan) {
     if (fs.existsSync(newPath)) {
@@ -56,18 +69,67 @@ function executeRename(renamePlan) {
     
     try {
       fs.renameSync(oldPath, newPath);
+      console.log(`✓ ${path.basename(oldPath)} -> ${newName}`);
       successCount++;
     } catch (error) {
-      console.log(`重命名 ${path.basename(oldPath)} 失败：${error.message}`);
+      console.log(`✗ 重命名 ${path.basename(oldPath)} 失败：${error.message}`);
+      errorCount++;
     }
   }
   
-  console.log(`重命名完成！成功: ${successCount}, 跳过: ${skipCount}`);
+  console.log(`\n重命名完成！成功: ${successCount}, 跳过: ${skipCount}, 失败: ${errorCount}`);
+  return { successCount, skipCount, errorCount };
 }
 
-// 主函数
-function renameImages(src, startNum, force) {
+// 预览重命名方案
+function previewRename(imgs, startNum, options = {}) {
+  const { autoWidth = true, fixedWidth = 3 } = options;
+  const totalCount = imgs.length;
+  
+  console.log(`共发现 ${totalCount} 张图片`);
+  if (autoWidth) {
+    const calculatedWidth = calculateWidthNeeded(startNum, totalCount);
+    console.log(`自动计算位数：${calculatedWidth}位（起始: ${startNum}, 最大: ${startNum + totalCount - 1}）`);
+  } else {
+    console.log(`固定位数：${fixedWidth}位`);
+  }
+  
+  console.log('预览改名方案（旧 -> 新）：');
+  
+  const renamePlan = [];
+  const nameMap = new Map(); // 用于检测重复的新文件名
+  
+  for (let i = 0; i < imgs.length; i++) {
+    const oldPath = imgs[i];
+    const ext = path.extname(oldPath);
+    const newName = autoWidth 
+      ? buildSmartNewName(startNum + i, ext, startNum, totalCount)
+      : buildNewName(startNum + i, ext, fixedWidth);
+    const newPath = path.join(path.dirname(oldPath), newName);
+    
+    // 检查是否有重复的新文件名
+    if (nameMap.has(newName)) {
+      console.log(`警告：新文件名冲突 ${newName}（来自 ${path.basename(oldPath)} 和 ${nameMap.get(newName)}）`);
+    }
+    nameMap.set(newName, path.basename(oldPath));
+    
+    renamePlan.push({ oldPath, newPath, newName });
+    console.log(`  ${path.basename(oldPath)}  ->  ${newName}`);
+  }
+  
+  return renamePlan;
+}
+
+// 主函数 - 增强版
+function renameImages(src, startNum, force, options = {}) {
   try {
+    // 解析参数
+    const {
+      autoWidth = true,    // 是否自动计算位数
+      fixedWidth = 3,      // 固定位数（当autoWidth为false时使用）
+      dryRun = false       // 干跑模式，只预览不执行
+    } = options;
+
     // 解析文件夹路径
     const folder = path.resolve(src);
     if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) {
@@ -82,23 +144,28 @@ function renameImages(src, startNum, force) {
       process.exit(1);
     }
 
+    // 检查固定位数参数
+    if (!autoWidth) {
+      const width = parseInt(fixedWidth, 10);
+      if (isNaN(width) || width < 1 || width > 10) {
+        console.error('固定位数必须是1-10之间的整数！');
+        process.exit(1);
+      }
+    }
+
     const imgs = collectImages(folder);
     if (imgs.length === 0) {
       console.log('未找到任何图片文件！');
       process.exit(0);
     }
 
-    console.log(`共发现 ${imgs.length} 张图片，目录：${folder}`);
-    console.log('预览改名方案（旧 -> 新）：');
-    
-    const renamePlan = [];
-    for (let i = 0; i < imgs.length; i++) {
-      const oldPath = imgs[i];
-      const ext = path.extname(oldPath);
-      const newName = buildNewName(start + i, ext);
-      const newPath = path.join(path.dirname(oldPath), newName);
-      renamePlan.push({ oldPath, newPath, newName });
-      console.log(`  ${path.basename(oldPath)}  ->  ${newName}`);
+    console.log(`图片目录：${folder}`);
+    const renamePlan = previewRename(imgs, start, { autoWidth, fixedWidth });
+
+    // 干跑模式直接退出
+    if (dryRun) {
+      console.log('\n干跑模式完成，未执行实际重命名操作。');
+      return;
     }
 
     // 如果不是强制模式，需要确认
@@ -125,9 +192,53 @@ function renameImages(src, startNum, force) {
   }
 }
 
+// 补充函数：将数字名称补充n位
+function padNumberFilename(filename, width = 3) {
+  const ext = path.extname(filename);
+  const nameWithoutExt = path.basename(filename, ext);
+  
+  // 检查文件名是否纯数字
+  if (/^\d+$/.test(nameWithoutExt)) {
+    const number = parseInt(nameWithoutExt, 10);
+    return `${number.toString().padStart(width, '0')}${ext}`;
+  }
+  
+  return filename; // 不是纯数字文件名，返回原文件名
+}
+
+// 批量补充数字文件名位数
+function padNumberFilenames(folder, width = 3) {
+  const files = fs.readdirSync(folder);
+  let count = 0;
+  
+  files.forEach(file => {
+    const oldPath = path.join(folder, file);
+    if (fs.statSync(oldPath).isFile()) {
+      const newName = padNumberFilename(file, width);
+      if (newName !== file) {
+        const newPath = path.join(folder, newName);
+        try {
+          fs.renameSync(oldPath, newPath);
+          console.log(`✓ ${file} -> ${newName}`);
+          count++;
+        } catch (error) {
+          console.log(`✗ 重命名 ${file} 失败：${error.message}`);
+        }
+      }
+    }
+  });
+  
+  console.log(`补充位数完成！处理了 ${count} 个文件。`);
+}
+
 module.exports = {
   renameImages,
   collectImages,
   buildNewName,
-  executeRename
+  buildSmartNewName,
+  calculateWidthNeeded,
+  executeRename,
+  previewRename,
+  padNumberFilename,
+  padNumberFilenames
 };

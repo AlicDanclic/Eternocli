@@ -9,7 +9,7 @@ const { program } = require('commander');
 const fs = require('fs');
 const path = require('path');
 const { execSync,spawn } = require('child_process');
-const { renameImages } = require('./Src/renameUtils');
+const { renameImages,padNumberFilenames } = require('./Src/renameUtils');
 const { setAutostartLink, setAutostartExe } = require('./src/autostart');
 const { exec } = require('child_process');
 const { getMediaDetails} = require('./Src/vmdetail');
@@ -831,8 +831,24 @@ program
   .requiredOption('-s, --src <dir>', '图片所在目录')
   .requiredOption('-n, --num <number>', '起始编号')
   .option('-f, --force', '跳过确认提示，直接执行', false)
+  .option('-w, --width <number>', '固定位数（如3则生成001.jpg），不指定则自动计算')
+  .option('--dry-run', '只预览不执行', false)
   .action((options) => {
-    renameImages(options.src, options.num, options.force);
+    renameImages(options.src, options.num, options.force, {
+      autoWidth: !options.width, // 如果指定了width则不用自动计算
+      fixedWidth: options.width ? parseInt(options.width) : 3,
+      dryRun: options.dryRun
+    });
+  });
+
+// 新增命令：补充数字文件名位数
+program
+  .command('pad-numbers')
+  .description('将数字文件名补充位数，例如1.jpg改为001.jpg')
+  .requiredOption('-s, --src <dir>', '图片所在目录')
+  .option('-w, --width <number>', '位数宽度，默认3', '3')
+  .action((options) => {
+    padNumberFilenames(options.src, parseInt(options.width));
   });
 /**end  图片重命名**/
 
