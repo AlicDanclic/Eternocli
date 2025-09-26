@@ -345,6 +345,7 @@ program
   .description('更新项目并提交更改')
   .option('-m, --message <message>', '提交信息')
   .option('-v, --version <version>', '版本号')
+  .option('-p, --push', '是否推送到远程仓库', false)
   .action((options) => {
     try {
       // 查找项目JSON文件
@@ -377,6 +378,11 @@ program
       execSync(`git commit -m "${options.message || '更新'}"`, { stdio: 'inherit' });
       
       console.log('项目已成功更新并提交');
+      
+      if(options.push) {
+        execSync('git push origin main', { stdio: 'inherit' });
+        console.log('项目已成功提交github');
+      }
     } catch (error) {
       console.error('更新项目时出错:', error.message);
     }
