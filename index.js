@@ -7,8 +7,10 @@
  */
 const { program } = require('commander');
 const fs = require('fs');
+const fs_e = require('fs-extra');
 const path = require('path');
 const { execSync,spawn } = require('child_process');
+const { compileFlowmaid } = require('./Src/flowmaid');
 const { renameImages,padNumberFilenames } = require('./Src/renameUtils');
 const { setAutostartLink, setAutostartExe } = require('./src/autostart');
 const { exec } = require('child_process');
@@ -1049,6 +1051,48 @@ program
     padNumberFilenames(options.src, parseInt(options.width));
   });
 /**end  图片重命名**/
+
+program
+  .command('flowmaid')
+  .description('Compile .flowmaid file to mind map')
+  .requiredOption('-s, --source <file>', 'Source .flowmaid file')
+  .option('-o, --output <dir>', 'Output directory', './')
+  .option('-f, --format <format>', 'Output format (html, json)', 'html')
+  .action(async (options) => {
+    try {
+      console.log('🔧 Compiling Flowmaid file...');
+      
+      const sourcePath = path.resolve(options.source);
+      const outputDir = path.resolve(options.output);
+      
+      // 检查源文件是否存在
+      if (!await fs_e.pathExists(sourcePath)) {
+        throw new Error(`Source file not found: ${sourcePath}`);
+      }
+      
+      // 确保输出目录存在
+      await fs_e.ensureDir(outputDir);
+      
+      // 读取源文件
+      const flowmaidContent = await fs_e.readFile(sourcePath, 'utf8');
+      
+      // 编译
+      const result = await compileFlowmaid(flowmaidContent, {
+        format: options.format,
+        outputDir: outputDir
+      });
+      
+      console.log('✅ Compilation completed!');
+      console.log(`📁 Output files:`);
+      result.outputFiles.forEach(file => {
+        console.log(`   - ${file}`);
+      });
+      
+    } catch (error) {
+      console.error('❌ Compilation failed:', error.message);
+      process.exit(1);
+    }
+  });
 
 /**begin 程序入口**/
 /**

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE}} - Mind Map</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .mindmap-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 100%;
+            overflow: auto;
+        }
+        
+        .mindmap-title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .mindmap {
+            position: relative;
+            min-height: 600px;
+        }
+        
+        .node {
+            position: absolute;
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: #fff;
+            border: 2px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            max-width: 200px;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .node:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .node-root {
+            background: #4CAF50;
+            color: white;
+            border-color: #388E3C;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 100;
+        }
+        
+        .node-level-1 {
+            background: #2196F3;
+            color: white;
+            border-color: #1976D2;
+        }
+        
+        .node-level-2 {
+            background: #FFC107;
+            color: #333;
+            border-color: #FFA000;
+        }
+        
+        .node-level-3 {
+            background: #9C27B0;
+            color: white;
+            border-color: #7B1FA2;
+        }
+        
+        .node-level-4 {
+            background: #607D8B;
+            color: white;
+            border-color: #455A64;
+        }
+        
+        .connection {
+            position: absolute;
+            background: #999;
+            transform-origin: 0 0;
+            z-index: -1;
+        }
+        
+        .node-attributes {
+            font-size: 10px;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s ease;
+        }
+        
+        .icon {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="mindmap-container">
+        <h1 class="mindmap-title">{{TITLE}}</h1>
+        <div class="mindmap" id="mindmap"></div>
+    </div>
+
+    <script>
+        // 思维导图数据
+        const mindMapData = {{MINDMAP_DATA}};
+        
+        // 渲染思维导图
+        function renderMindMap() {
+            const container = document.getElementById('mindmap');
+            const nodes = [];
+            const connections = [];
+            
+            // 计算节点位置
+            function calculatePositions(node, level = 0, index = 0, total = 1, parentX = 0, parentY = 0) {
+                const angleStep = Math.PI * 1.5 / total;
+                const radius = 200 + level * 150;
+                const angle = (index - (total - 1) / 2) * angleStep;
+                
+                const x = parentX + Math.cos(angle) * radius;
+                const y = parentY + Math.sin(angle) * radius;
+                
+                const nodeElement = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    name: node.name,
+                    attributes: node.attributes || {},
+                    x: x,
+                    y: y,
+                    level: level,
+                    children: []
+                };
+                
+                nodes.push(nodeElement);
+                
+                // 计算子节点位置
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach((child, childIndex) => {
+                        const childNode = calculatePositions(
+                            child, 
+                            level + 1, 
+                            childIndex, 
+                            node.children.length,
+                            x,
+                            y
+                        );
+                        nodeElement.children.push(childNode);
+                        
+                        // 添加连接线
+                        connections.push({
+                            from: { x: x, y: y },
+                            to: { x: childNode.x, y: childNode.y }
+                        });
+                    });
+                }
+                
+                return nodeElement;
+            }
+            
+            // 计算根节点位置（居中）
+            const centerX = container.offsetWidth / 2;
+            const centerY = container.offsetHeight / 2;
+            
+            calculatePositions(mindMapData.root, 0, 0, 1, centerX, centerY);
+            
+            // 渲染连接线
+            connections.forEach(conn => {
+                const length = Math.sqrt(
+                    Math.pow(conn.to.x - conn.from.x, 2) + 
+                    Math.pow(conn.to.y - conn.from.y, 2)
+                );
+                const angle = Math.atan2(conn.to.y - conn.from.y, conn.to.x - conn.from.x);
+                
+                const connection = document.createElement('div');
+                connection.className = 'connection';
+                connection.style.width = length + 'px';
+                connection.style.height = '2px';
+                connection.style.left = conn.from.x + 'px';
+                connection.style.top = conn.from.y + 'px';
+                connection.style.transform = `rotate(${angle}rad)`;
+                
+                container.appendChild(connection);
+            });
+            
+            // 渲染节点
+            nodes.forEach(node => {
+                const nodeElement = document.createElement('div');
+                nodeElement.className = `node node-level-${Math.min(node.level, 4)}`;
+                if (node.level === 0) {
+                    nodeElement.classList.add('node-root');
+                }
+                
+                nodeElement.style.left = (node.x - 100) + 'px';
+                nodeElement.style.top = (node.y - 25) + 'px';
+                
+                // 节点内容
+                let content = `<div class="node-content">`;
+                if (node.attributes.icon) {
+                    content += `<span class="icon">${node.attributes.icon}</span>`;
+                }
+                content += node.name;
+                content += `</div>`;
+                
+                // 进度条
+                if (node.attributes.progress) {
+                    content += `
+                        <div class="node-attributes">
+                            Progress: ${node.attributes.progress}%
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${node.attributes.progress}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // 其他属性
+                const otherAttrs = Object.keys(node.attributes)
+                    .filter(key => !['progress', 'icon'].includes(key))
+                    .map(key => `${key}: ${node.attributes[key]}`)
+                    .join(', ');
+                
+                if (otherAttrs) {
+                    content += `<div class="node-attributes">${otherAttrs}</div>`;
+                }
+                
+                nodeElement.innerHTML = content;
+                container.appendChild(nodeElement);
+            });
+        }
+        
+        // 页面加载完成后渲染
+        document.addEventListener('DOMContentLoaded', renderMindMap);
+        
+        // 窗口大小变化时重新渲染
+        window.addEventListener('resize', function() {
+            const container = document.getElementById('mindmap');
+            container.innerHTML = '';
+            renderMindMap();
+        });
+    </script>
+</body>
+</html>
