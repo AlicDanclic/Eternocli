@@ -9,16 +9,17 @@ const { program } = require('commander');
 const fs = require('fs');
 const fs_e = require('fs-extra');
 const path = require('path');
-const { execSync,spawn } = require('child_process');
+const { execSync, spawn } = require('child_process');
+const crypto = require('crypto');
 const { compileFlowmaid } = require('./Src/flowmaid');
-const { renameImages,padNumberFilenames } = require('./Src/renameUtils');
+const { renameImages, padNumberFilenames } = require('./Src/renameUtils');
 const { setAutostartLink, setAutostartExe } = require('./src/autostart');
 const { exec } = require('child_process');
-const { getMediaDetails} = require('./Src/vmdetail');
+const { getMediaDetails } = require('./Src/vmdetail');
 const { generateQRCode, generateBarcode } = require('./Src/qr');
 const Encrypted = require('./Src/Encrypted');
 const { transformFile, getSupportedConversions } = require('./Src/transform');
-// 在文件顶部添加加密解密模块的引入
+// 在顶部添加加密/解密模块导入
 const { 
   generateKeyAndIV, 
   encrypt, 
@@ -26,7 +27,6 @@ const {
   processFile, 
   getSupportedAlgorithms 
 } = require('./Src/code');
-const CompressionTool = require('./Src/zip');
 /**end 导入模块**/
 
 /**begin 默认配置**/
@@ -34,8 +34,8 @@ const CompressionTool = require('./Src/zip');
  * 默认项目结构和文件配置
  * @module 默认配置
  */
-const defaultDirs = ['Bitmap', 'Hardware', 'Software', 'References','DataSheet'];
-const defaultFiles = ['Readme.md', '.gitignore'];
+const defaultDirs = ['位图', '硬件', '软件', '参考资料', '数据手册'];
+const defaultFiles = ['说明文档.md', '.gitignore'];
 /**end 默认配置**/
 
 /**begin 程序基本信息**/
@@ -53,15 +53,15 @@ program.version(packageJson.version);
  * @module 创建项目命令
  */
 program
-  .command('create <name>')
+  .command('create <项目名称>')
   .description('创建新项目结构')
-  .option('-d, --dir <path>', '指定项目目录', '.')
-  .option('-a, --add <items>', '添加额外的目录/文件', '')
-  .option('-r, --remove <items>', '移除默认目录/文件', '')
-  .action((name, options) => {
+  .option('-d, --dir <路径>', '指定项目目录', '.')
+  .option('-a, --add <项目>', '添加额外的目录/文件', '')
+  .option('-r, --remove <项目>', '移除默认目录/文件', '')
+  .action((项目名称, options) => {
     try {
       // 确定项目路径
-      const projectPath = path.resolve(options.dir, name);
+      const projectPath = path.resolve(options.dir, 项目名称);
       
       // 创建项目目录
       if (!fs.existsSync(projectPath)) {
@@ -72,7 +72,7 @@ program
       const dirsToCreate = [...defaultDirs];
       const filesToCreate = [...defaultFiles];
       
-      // 如果指定了移除项，则移除
+      // 如果指定了移除项目
       if (options.remove) {
         const itemsToRemove = options.remove.split(',');
         itemsToRemove.forEach(item => {
@@ -84,7 +84,7 @@ program
         });
       }
       
-      // 如果指定了添加项，则添加
+      // 如果指定了添加项目
       if (options.add) {
         const itemsToAdd = options.add.split(',');
         itemsToAdd.forEach(item => {
@@ -101,7 +101,7 @@ program
         const dirPath = path.join(projectPath, dir);
         if (!fs.existsSync(dirPath)) {
           fs.mkdirSync(dirPath, { recursive: true });
-          console.log(`已创建目录: ${dir}`);
+          console.log(`目录已创建: ${dir}`);
         }
       });
       
@@ -109,20 +109,20 @@ program
       filesToCreate.forEach(file => {
         const filePath = path.join(projectPath, file);
         if (!fs.existsSync(filePath)) {
-          if (file === 'Readme.md') {
-            fs.writeFileSync(filePath, `# ${name}\n\n项目描述写在这里。`);
+          if (file === '说明文档.md') {
+            fs.writeFileSync(filePath, `# ${项目名称}\n\n项目描述写在这里。`);
           } else if (file === '.gitignore') {
             fs.writeFileSync(filePath, 'node_modules/\n.env\n.DS_Store\n');
           } else {
             fs.writeFileSync(filePath, '');
           }
-          console.log(`已创建文件: ${file}`);
+          console.log(`文件已创建: ${file}`);
         }
       });
       
       // 创建项目JSON文件
       const projectJson = {
-        projectName: name,
+        projectName: 项目名称,
         creationDate: new Date().toISOString().split('T')[0],
         lastUpdateDate: new Date().toISOString().split('T')[0],
         changelog: [
@@ -134,11 +134,11 @@ program
         ]
       };
       
-      const jsonPath = path.join(projectPath, `${name}.json`);
+      const jsonPath = path.join(projectPath, `${项目名称}.json`);
       fs.writeFileSync(jsonPath, JSON.stringify(projectJson, null, 2));
-      console.log(`已创建项目文件: ${name}.json`);
+      console.log(`项目文件已创建: ${项目名称}.json`);
       
-      console.log(`项目 "${name}" 已成功创建于 ${projectPath}`);
+      console.log(`项目 "${项目名称}" 已成功创建于 ${projectPath}`);
     } catch (error) {
       console.error('创建项目时出错:', error.message);
     }
@@ -153,19 +153,19 @@ program
 program
   .command('view-project')
   .description('查看项目JSON文件内容')
-  .option('-p, --path <path>', '指定项目JSON文件路径')  // 修改为 -p, --path
-  .option('-f, --full', '显示完整的项目信息')
-  .option('-c, --changelog', '只显示更新日志')
-  .option('-m, --summary', '只显示项目摘要')  // 修改为 -m, --summary
+  .option('-p, --path <路径>', '指定项目JSON文件路径')
+  .option('-f, --full', '显示完整项目信息')
+  .option('-c, --changelog', '仅显示更新日志')
+  .option('-m, --summary', '仅显示项目摘要')
   .action((options) => {
     try {
       let jsonPath;
       
-      // 如果指定了路径，使用指定路径
-      if (options.path) {  // 修改为 options.path
+      // 如果提供了指定路径，则使用该路径
+      if (options.path) {
         jsonPath = path.resolve(options.path);
       } else {
-        // 否则在当前目录查找项目JSON文件
+        // 否则在当前目录搜索项目JSON文件
         const files = fs.readdirSync(process.cwd());
         const jsonFiles = files.filter(f => 
           f.endsWith('.json') && 
@@ -218,30 +218,30 @@ program
 
 /**begin 项目信息显示函数**/
 /**
- * 显示完整的项目信息
+ * 显示完整项目信息
  * @param {Object} projectData 项目数据
  * @param {string} filePath 文件路径
  * @param {boolean} showFull 是否显示完整信息
  */
 function displayFullProjectInfo(projectData, filePath, showFull = false) {
   console.log('📁 项目信息');
-  console.log('==========');
+  console.log('=====================');
   console.log(`文件路径: ${filePath}`);
   console.log(`项目名称: ${projectData.projectName || '未命名'}`);
   console.log(`创建日期: ${projectData.creationDate || '未知'}`);
   console.log(`最后更新: ${projectData.lastUpdateDate || '未知'}`);
   
-  // 计算项目年龄（如果可能）
+  // 计算项目存在时间（如果可能）
   if (projectData.creationDate) {
     const createDate = new Date(projectData.creationDate);
     const today = new Date();
     const diffTime = Math.abs(today - createDate);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    console.log(`项目年龄: ${diffDays} 天`);
+    console.log(`项目存在时间: ${diffDays} 天`);
   }
   
   console.log(`\n📋 版本信息`);
-  console.log('==========');
+  console.log('=====================');
   if (projectData.changelog && projectData.changelog.length > 0) {
     const latestVersion = projectData.changelog[projectData.changelog.length - 1];
     console.log(`最新版本: ${latestVersion.version}`);
@@ -254,7 +254,7 @@ function displayFullProjectInfo(projectData, filePath, showFull = false) {
         console.log(`  ${log.info}`);
       });
     } else {
-      // 只显示最近3个版本
+      // 仅显示最近3个版本
       console.log('\n🕒 最近更新:');
       const recentLogs = projectData.changelog.slice(-3);
       recentLogs.forEach(log => {
@@ -262,11 +262,11 @@ function displayFullProjectInfo(projectData, filePath, showFull = false) {
       });
       
       if (projectData.changelog.length > 3) {
-        console.log(`  ... 还有 ${projectData.changelog.length - 3} 个更早的版本`);
+        console.log(`  ... ${projectData.changelog.length - 3} 个更早版本`);
       }
     }
   } else {
-    console.log('暂无版本信息');
+    console.log('无版本信息可用');
   }
   
   // 显示其他自定义字段
@@ -283,22 +283,22 @@ function displayFullProjectInfo(projectData, filePath, showFull = false) {
 }
 
 /**
- * 只显示更新日志
+ * 仅显示更新日志
  * @param {Object} projectData 项目数据
  */
 function displayChangelog(projectData) {
   console.log('📖 项目更新日志');
-  console.log('==============');
+  console.log('====================');
   
   if (projectData.changelog && projectData.changelog.length > 0) {
     projectData.changelog.forEach((log, index) => {
       console.log(`\n${index + 1}. 版本 ${log.version} (${log.updateDate})`);
-      console.log(`   更新内容: ${log.info}`);
+      console.log(`   更新信息: ${log.info}`);
     });
     
     console.log(`\n总计: ${projectData.changelog.length} 个版本`);
   } else {
-    console.log('暂无更新日志');
+    console.log('无更新日志可用');
   }
 }
 
@@ -315,7 +315,7 @@ function displaySummary(projectData, filePath) {
     : '无版本信息';
   
   console.log('🚀 项目摘要');
-  console.log('==========');
+  console.log('==================');
   console.log(`项目: ${projectName}`);
   console.log(`版本: ${latestVersion}`);
   console.log(`创建: ${projectData.creationDate || '未知'}`);
@@ -329,7 +329,7 @@ function displaySummary(projectData, filePath) {
     const diffDays = Math.floor((today - lastUpdate) / (1000 * 60 * 60 * 24));
     
     let status = '🟢 活跃';
-    if (diffDays > 30) status = '🟡 一般';
+    if (diffDays > 30) status = '🟡 正常';
     if (diffDays > 90) status = '🔴 停滞';
     
     console.log(`项目状态: ${status} (${diffDays} 天前更新)`);
@@ -345,9 +345,9 @@ function displaySummary(projectData, filePath) {
 program
   .command('update')
   .description('更新项目并提交更改')
-  .option('-m, --message <message>', '提交信息')
-  .option('-v, --version <version>', '版本号')
-  .option('-p, --push', '是否推送到远程仓库', false)
+  .option('-m, --message <消息>', '提交消息')
+  .option('-v, --version <版本号>', '版本号')
+  .option('-p, --push', '推送到远程仓库', false)
   .action((options) => {
     try {
       // 查找项目JSON文件
@@ -372,7 +372,7 @@ program
         });
       }
       
-      // 写入更新后的项目数据
+      // 写入更新的项目数据
       fs.writeFileSync(jsonFile, JSON.stringify(projectData, null, 2));
       
       // 执行Git命令
@@ -383,7 +383,7 @@ program
       
       if(options.push) {
         execSync('git push origin main', { stdio: 'inherit' });
-        console.log('项目已成功提交github');
+        console.log('项目已成功推送到GitHub');
       }
     } catch (error) {
       console.error('更新项目时出错:', error.message);
@@ -399,18 +399,18 @@ program
 program
   .command('git-init')
   .description('初始化git仓库并设置远程仓库')
-  .option('-u, --url <url>', '远程仓库URL')
+  .option('-u, --url <链接>', '远程仓库URL')
   .action((options) => {
     try {
       execSync('git init', { stdio: 'inherit' });
       execSync('git add .', { stdio: 'inherit' });
-      execSync('git commit -m "首次提交"', { stdio: 'inherit' });
+      execSync('git commit -m "初始提交"', { stdio: 'inherit' });
       
       if (options.url) {
         execSync('git branch -M main', { stdio: 'inherit' });
         execSync(`git remote add origin ${options.url}`, { stdio: 'inherit' });
         execSync('git push -u origin main', { stdio: 'inherit' });
-        console.log(`Git仓库已初始化并推送至 ${options.url}`);
+        console.log(`Git仓库已初始化并推送到 ${options.url}`);
       } else {
         console.log('Git仓库已在本地初始化');
       }
@@ -426,13 +426,13 @@ program
  * @module 文件转换命令
  */
 program
-  .command('transform <sourcefile>')
+  .command('transform <源文件>')
   .description('转换文件格式')
-  .requiredOption('-t, --type <type>', '目标格式')
-  .option('-o, --output <outputpath>', '输出路径')
-  .action(async (sourcefile, options) => {
+  .requiredOption('-t, --type <类型>', '目标格式')
+  .option('-o, --output <输出路径>', '输出路径')
+  .action(async (源文件, options) => {
     try {
-      await transformFile(sourcefile, options.type, options.output);
+      await transformFile(源文件, options.type, options.output);
     } catch (error) {
       console.error(error.message);
       process.exit(1);
@@ -440,10 +440,10 @@ program
   });
 /**end 文件转换命令**/
 
-/**begin 查看支持的转换格式命令**/
+/**begin 查看支持格式命令**/
 /**
- * 查看支持的转换格式命令实现
- * @module 查看支持的转换格式命令
+ * 查看支持转换格式的命令实现
+ * @module 查看支持格式命令
  */
 program
   .command('transform-formats')
@@ -456,22 +456,7 @@ program
       console.log(`  ${from} -> ${to.join(', ')}`);
     });
   });
-/**end 查看支持的转换格式命令**/
-
-/**begin 文件比较命令**/
-/**
- * 文件比较命令实现
- * @module 文件比较命令
- */
-program
-  .command('compare <file1> <file2>')
-  .description('比较两个文件的内容')
-  .option('-m, --mode <mode>', '比较模式 (content, binary, size)', 'content')
-  .action((file1, file2, options) => {
-    // 实现文件比较
-    console.log(`比较 ${file1} 和 ${file2}`);
-  });
-/**end 文件比较命令**/
+/**end 查看支持格式命令**/
 
 /**begin 密码生成命令**/
 /**
@@ -481,31 +466,67 @@ program
 program
   .command('generate-password')
   .description('生成随机密码')
-  .option('-l, --length <length>', '密码长度', '16')
-  .option('-c, --complexity <complexity>', '复杂度 (low, medium, high)', 'medium')
+  .option('-l, --length <长度>', '密码长度', '16')
+  .option('-c, --complexity <复杂度>', '复杂度 (低, 中, 高)', '中')
   .action((options) => {
-    // 实现密码生成功能
-    console.log('生成随机密码');
+    try {
+      const length = parseInt(options.length);
+      
+      // 验证长度参数
+      if (isNaN(length) || length < 1) {
+        console.error('错误: 密码长度必须是正整数');
+        return;
+      }
+
+      // 定义字符集
+      const charSets = {
+        低: 'abcdefghijklmnopqrstuvwxyz0123456789',
+        中: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+        高: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?'
+      };
+
+      // 获取指定复杂度的字符集
+      const charset = charSets[options.complexity];
+      if (!charset) {
+        console.error('错误: 复杂度必须是 低、中 或 高');
+        return;
+      }
+
+      // 生成密码
+      let password = '';
+      const randomBytes = crypto.randomBytes(length);
+      
+      for (let i = 0; i < length; i++) {
+        const randomIndex = randomBytes[i] % charset.length;
+        password += charset[randomIndex];
+      }
+
+      console.log(`生成的密码: ${password}`);
+      
+    } catch (error) {
+      console.error('生成密码时出错:', error.message);
+    }
   });
 /**end 密码生成命令**/
 
-/**begin 加密解密命令**/
+/**begin 加密/解密命令**/
 /**
- * 加密解密命令实现
- * @module 加密解密命令
+ * 加密/解密命令实现
+ * @module 加密/解密命令
  */
 program
   .command('cryption')
   .description('加密或解密数据')
   .option('-e, --encrypt', '加密模式')
   .option('-d, --decrypt', '解密模式')
-  .option('-t, --type <algorithm>', '加密/解密算法', 'aes-256-cbc')
-  .option('-k, --key <key>', '加密密钥（十六进制字符串）')
-  .option('-i, --iv <iv>', '初始化向量（十六进制字符串，某些算法需要）')
+  .option('-t, --type <算法>', '加密/解密算法', 'aes-256-cbc')
+  .option('-k, --key <密钥>', '加密密钥(十六进制字符串)')
+  .option('-i, --iv <初始向量>', '初始化向量(十六进制字符串，某些算法需要)')
   .option('-f, --file', '处理文件而不是文本')
-  .option('-o, --output <output>', '输出文件路径')
-  .argument('[data]', '要加密/解密的文本或文件路径')
-  .action(async (data, options) => {
+  .option('-o, --output <输出>', '输出文件路径')
+  .option('-s, --save-keys <密钥文件>', '将生成的密钥保存到文件(仅加密)')
+  .argument('[数据]', '要加密/解密的文本或文件路径')
+  .action(async (数据, options) => {
     try {
       // 验证参数
       if (!options.encrypt && !options.decrypt) {
@@ -530,7 +551,7 @@ program
       
       // 处理文件
       if (options.file) {
-        if (!data) {
+        if (!数据) {
           console.error('错误: 文件模式下必须提供输入文件路径');
           process.exit(1);
         }
@@ -540,7 +561,7 @@ program
           process.exit(1);
         }
         
-        // 如果没有提供密钥，生成一个
+        // 如果未提供密钥则生成密钥
         let key = options.key;
         let iv = options.iv;
         
@@ -551,21 +572,28 @@ program
           
           console.log(`生成的密钥: ${key}`);
           if (iv) console.log(`生成的IV: ${iv}`);
-          console.log('请妥善保存这些值，解密时需要它们');
+          
+          // 如果请求，将密钥保存到文件
+          if (options.saveKeys && operation === 'encrypt') {
+            await saveKeysToFile(options.saveKeys, key, iv, options.type, 数据, options.output);
+            console.log(`密钥已保存至: ${options.saveKeys}`);
+          }
+          
+          console.log('请安全保存这些值，解密时需要它们');
         }
         
-        await processFile(data, options.output, operation, options.type, key, iv);
+        await processFile(数据, options.output, operation, options.type, key, iv);
         console.log(`文件${operation === 'encrypt' ? '加密' : '解密'}成功: ${options.output}`);
       } 
       // 处理文本
       else {
-        if (!data) {
+        if (!数据) {
           console.error('错误: 必须提供要加密/解密的文本');
           process.exit(1);
         }
         
         if (operation === 'encrypt') {
-          // 如果没有提供密钥，生成一个
+          // 如果未提供密钥则生成密钥
           let key = options.key;
           let iv = options.iv;
           
@@ -573,9 +601,15 @@ program
             const keyData = generateKeyAndIV(options.type);
             key = keyData.key.toString('hex');
             iv = keyData.iv ? keyData.iv.toString('hex') : null;
+            
+            // 如果请求，将密钥保存到文件
+            if (options.saveKeys) {
+              await saveKeysToFile(options.saveKeys, key, iv, options.type, 数据);
+              console.log(`密钥已保存至: ${options.saveKeys}`);
+            }
           }
           
-          const result = encrypt(data, options.type, Buffer.from(key, 'hex'), iv ? Buffer.from(iv, 'hex') : null);
+          const result = encrypt(数据, options.type, Buffer.from(key, 'hex'), iv ? Buffer.from(iv, 'hex') : null);
           
           console.log(`加密结果: ${result.encryptedData}`);
           console.log(`使用的密钥: ${result.key}`);
@@ -584,11 +618,11 @@ program
         } else {
           // 解密模式
           if (!options.key) {
-            console.error('错误: 解密模式必须提供密钥(-k)');
+            console.error('错误: 解密模式下必须提供密钥(-k)');
             process.exit(1);
           }
           
-          const decrypted = decrypt(data, options.type, options.key, options.iv);
+          const decrypted = decrypt(数据, options.type, options.key, options.iv);
           console.log(`解密结果: ${decrypted}`);
         }
       }
@@ -597,12 +631,71 @@ program
       process.exit(1);
     }
   });
-/**end 加密解密命令**/
 
-/**begin 查看支持的加密算法命令**/
+// 添加保存密钥到文件的函数
+async function saveKeysToFile(文件名, 密钥, 初始向量, 算法, 输入文件 = null, 输出文件 = null) {
+  const fs = require('fs').promises;
+  const path = require('path');
+  
+  const keyData = {
+    key: 密钥,
+    iv: 初始向量,
+    algorithm: 算法,
+    timestamp: new Date().toISOString(),
+    inputFile: 输入文件,
+    outputFile: 输出文件
+  };
+  
+  // 确保目录存在
+  const dir = path.dirname(文件名);
+  try {
+    await fs.access(dir);
+  } catch (error) {
+    // 目录不存在，创建它
+    await fs.mkdir(dir, { recursive: true });
+  }
+  
+  // 保存为JSON文件
+  await fs.writeFile(文件名, JSON.stringify(keyData, null, 2));
+  
+  // 同时保存一个人类可读的版本
+  const txtFilename = 文件名.replace(/\.json$/, '') + '.txt';
+  let txtContent = `加密密钥\n`;
+  txtContent += `===============\n`;
+  txtContent += `时间戳: ${keyData.timestamp}\n`;
+  txtContent += `算法: ${keyData.algorithm}\n`;
+  if (输入文件) txtContent += `输入文件: ${输入文件}\n`;
+  if (输出文件) txtContent += `输出文件: ${输出文件}\n`;
+  txtContent += `\n密钥: ${密钥}\n`;
+  if (初始向量) txtContent += `初始向量: ${初始向量}\n`;
+  txtContent += `\n重要: 请安全保存此文件! 这些密钥是解密所必需的。\n`;
+  
+  await fs.writeFile(txtFilename, txtContent);
+}
+
+// 添加从文件加载密钥的函数（用于解密）
+async function loadKeysFromFile(文件名) {
+  const fs = require('fs').promises;
+  
+  try {
+    const data = await fs.readFile(文件名, 'utf8');
+    const keyData = JSON.parse(data);
+    
+    return {
+      key: keyData.key,
+      iv: keyData.iv,
+      algorithm: keyData.algorithm
+    };
+  } catch (error) {
+    throw new Error(`从文件加载密钥失败: ${error.message}`);
+  }
+}
+/**end 加密/解密命令**/
+
+/**begin 查看支持算法命令**/
 /**
- * 查看支持的加密算法命令实现
- * @module 查看支持的加密算法命令
+ * 查看支持加密算法的命令实现
+ * @module 查看支持算法命令
  */
 program
   .command('cryption-algorithms')
@@ -614,213 +707,36 @@ program
       console.log(`  - ${algorithm}`);
     });
   });
-/**end 查看支持的加密算法命令**/
+/**end 查看支持算法命令**/
 
-/**begin ZIP命令**/
-/**
- * ZIP压缩操作命令实现
- * @module ZIP命令
- */
-program
-  .command('zip')
-  .description('ZIP 压缩操作')
-  .option('-a, --all', '压缩当前目录所有内容')
-  .option('-n, --name <name>', '指定压缩文件名')
-  .option('-f, --folders', '压缩当前目录所有文件夹')
-  .option('-r, --files', '压缩当前目录所有文件')
-  .option('-s, --src <src>', '源文件路径（用于格式转换）')
-  .option('-t, --target <format>', '目标格式（用于格式转换）')
-  .option('-w, --work <src>', '压缩指定文件/文件夹')
-  .option('-o, --output <path>', '输出路径')
-  .option('-d, --delete', '压缩后删除源文件')
-  .action((options) => {
-    try {
-      if (options.all) {
-        CompressionTool.compressAll('zip', options.name, options.delete);
-      } else if (options.folders) {
-        CompressionTool.compressFolders('zip', options.delete);
-      } else if (options.files) {
-        CompressionTool.compressFiles('zip', options.delete);
-      } else if (options.src && options.target) {
-        CompressionTool.convertFormat(options.src, 'zip', options.target, options.delete);
-      } else if (options.work) {
-        CompressionTool.compressSpecific(options.work, 'zip', options.output, options.delete);
-      } else {
-        console.log('请指定压缩模式，使用 -h 查看帮助');
-      }
-    } catch (error) {
-      console.error('操作失败:', error.message);
-      process.exit(1);
-    }
-  });
-/**end ZIP命令**/
-
-/**begin 7z命令**/
-/**
- * 7z压缩操作命令实现
- * @module 7z命令
- */
-program
-  .command('7z')
-  .description('7z 压缩操作')
-  .option('-a, --all', '压缩当前目录所有内容')
-  .option('-n, --name <name>', '指定压缩文件名')
-  .option('-f, --folders', '压缩当前目录所有文件夹')
-  .option('-r, --files', '压缩当前目录所有文件')
-  .option('-s, --src <src>', '源文件路径（用于格式转换）')
-  .option('-t, --target <format>', '目标格式（用于格式转换）')
-  .option('-w, --work <src>', '压缩指定文件/文件夹')
-  .option('-o, --output <path>', '输出路径')
-  .option('-d, --delete', '压缩后删除源文件')
-  .action((options) => {
-    try {
-      if (options.all) {
-        CompressionTool.compressAll('7z', options.name, options.delete);
-      } else if (options.folders) {
-        CompressionTool.compressFolders('7z', options.delete);
-      } else if (options.files) {
-        CompressionTool.compressFiles('7z', options.delete);
-      } else if (options.src && options.target) {
-        CompressionTool.convertFormat(options.src, '7z', options.target, options.delete);
-      } else if (options.work) {
-        CompressionTool.compressSpecific(options.work, '7z', options.output, options.delete);
-      } else {
-        console.log('请指定压缩模式，使用 -h 查看帮助');
-      }
-    } catch (error) {
-      console.error('操作失败:', error.message);
-      process.exit(1);
-    }
-  });
-/**end 7z命令**/
-
-/**begin RAR命令**/
-/**
- * RAR压缩操作命令实现
- * @module RAR命令
- */
-program
-  .command('rar')
-  .description('RAR 压缩操作')
-  .option('-a, --all', '压缩当前目录所有内容')
-  .option('-n, --name <name>', '指定压缩文件名')
-  .option('-f, --folders', '压缩当前目录所有文件夹')
-  .option('-r, --files', '压缩当前目录所有文件')
-  .option('-s, --src <src>', '源文件路径（用于格式转换）')
-  .option('-t, --target <format>', '目标格式（用于格式转换）')
-  .option('-w, --work <src>', '压缩指定文件/文件夹')
-  .option('-o, --output <path>', '输出路径')
-  .option('-d, --delete', '压缩后删除源文件')
-  .action((options) => {
-    try {
-      if (options.all) {
-        CompressionTool.compressAll('rar', options.name, options.delete);
-      } else if (options.folders) {
-        CompressionTool.compressFolders('rar', options.delete);
-      } else if (options.files) {
-        CompressionTool.compressFiles('rar', options.delete);
-      } else if (options.src && options.target) {
-        CompressionTool.convertFormat(options.src, 'rar', options.target, options.delete);
-      } else if (options.work) {
-        CompressionTool.compressSpecific(options.work, 'rar', options.output, options.delete);
-      } else {
-        console.log('请指定压缩模式，使用 -h 查看帮助');
-      }
-    } catch (error) {
-      console.error('操作失败:', error.message);
-      process.exit(1);
-    }
-  });
-/**end RAR命令**/
-
-/**begin 加密压缩命令**/
-/**
- * 加密压缩命令实现
- * @module 加密压缩命令
- */
-program
-  .command('ezip <src>')
-  .description('压缩并加密文件')
-  .option('-o, --output <path>', '输出路径')
-  .action(async (src, options) => {
-    try {
-      // 处理输出路径
-      let outputPath = options.output || process.cwd();
-      const srcName = path.basename(src, path.extname(src));
-      
-      // 如果输出路径是目录，则添加文件名
-      if (fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory()) {
-        outputPath = path.join(outputPath, `${srcName}.ezip`);
-      }
-
-      console.log('正在加密压缩...');
-      await Encrypted.encryptAndCompress(src, outputPath);
-      console.log(`文件已加密压缩到: ${outputPath}`);
-    } catch (error) {
-      console.error('操作失败:', error.message);
-      process.exit(1);
-    }
-  });
-/**end 加密压缩命令**/
-
-/**begin 解密解压命令**/
-/**
- * 解密解压命令实现
- * @module 解密解压命令
- */
-program
-  .command('dezip <src>')
-  .description('解密并解压文件')
-  .option('-o, --output <path>', '输出路径')
-  .action(async (src, options) => {
-    try {
-      // 处理输出路径
-      let outputPath = options.output || process.cwd();
-      const srcName = path.basename(src, '.ezip');
-      
-      // 如果输出路径是目录，则添加文件名（去掉.ezip后缀）
-      if (fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory()) {
-        outputPath = path.join(outputPath, srcName);
-      }
-
-      console.log('正在解密解压...');
-      await Encrypted.decryptAndDecompress(src, outputPath);
-      console.log(`文件已解密到: ${outputPath}`);
-    } catch (error) {
-      console.error('操作失败:', error.message);
-      process.exit(1);
-    }
-  });
-/**end 解密解压命令**/
-
-/**begin 二维码条形码命令**/
+/**begin 二维码/条形码命令**/
 /**
  * 二维码和条形码生成命令实现
- * @module 二维码条形码命令
+ * @module 二维码/条形码命令
  */
 program
   .command('qrcode')
-  .description('Generate QR code or barcode')
-  .option('-t, --qrcode', 'Generate QR code')
-  .option('-s, --barcode', 'Generate barcode')
-  .option('-m, --message <message>', 'Text message to encode')
-  .option('-u, --url <url>', 'URL to encode')
-  .option('-o, --output <path>', 'Output file path')
+  .description('生成二维码或条形码')
+  .option('-t, --qrcode', '生成二维码')
+  .option('-s, --barcode', '生成条形码')
+  .option('-m, --message <消息>', '要编码的文本消息')
+  .option('-u, --url <链接>', '要编码的URL')
+  .option('-o, --output <路径>', '输出文件路径')
   .action(async (options) => {
     try {
       // 验证参数
       if (!options.qrcode && !options.barcode) {
-        console.error('Error: Please specify either -t for QR code or -s for barcode');
+        console.error('错误: 请指定 -t 生成二维码或 -s 生成条形码');
         process.exit(1);
       }
 
       if (!options.message && !options.url) {
-        console.error('Error: Please provide either a message with -m or a URL with -u');
+        console.error('错误: 请提供消息(-m)或URL(-u)');
         process.exit(1);
       }
 
       if (!options.output) {
-        console.error('Error: Please specify an output path with -o');
+        console.error('错误: 请使用 -o 指定输出路径');
         process.exit(1);
       }
 
@@ -828,38 +744,38 @@ program
 
       if (options.qrcode) {
         await generateQRCode(content, options.output);
-        console.log(`QR code generated successfully at ${options.output}`);
+        console.log(`二维码已成功生成于 ${options.output}`);
       } else if (options.barcode) {
         await generateBarcode(content, options.output);
-        console.log(`Barcode generated successfully at ${options.output}`);
+        console.log(`条形码已成功生成于 ${options.output}`);
       }
     } catch (error) {
-      console.error('Error:', error.message);
+      console.error('错误:', error.message);
       process.exit(1);
     }
   });
-/**end 二维码条形码命令**/
+/**end 二维码/条形码命令**/
 
-/**begin 自启动命令**/
+/**begin 开机自启命令**/
 /**
- * 自启动设置命令实现
- * @module 自启动命令
+ * 开机自启设置命令实现
+ * @module 开机自启命令
  */
 program
   .command('autostart')
-  .description('Set up autostart for Windows')
-  .option('-l, --link <path>', 'Set autostart using a link file')
-  .option('-r, --exe <path>', 'Set autostart using an exe file (creates link first)')
+  .description('设置Windows开机自启')
+  .option('-l, --link <路径>', '使用链接文件设置开机自启')
+  .option('-r, --exe <路径>', '使用exe文件设置开机自启(先创建链接)')
   .action((options) => {
     if (options.link) {
       setAutostartLink(options.link);
     } else if (options.exe) {
       setAutostartExe(options.exe);
     } else {
-      console.log('Please specify either -l for link file or -r for exe file');
+      console.log('请指定 -l 用于链接文件或 -r 用于exe文件');
     }
   });
-/**end 自启动命令**/
+/**end 开机自启命令**/
 
 /**begin 关机命令**/
 /**
@@ -868,10 +784,10 @@ program
  */
 program
   .command('shutdown')
-  .description('Shutdown management commands')
-  .option('-n, --now', 'Shutdown immediately')
-  .option('-t, --timer <minutes>', 'Shutdown after specified minutes', parseInt)
-  .option('-c, --cancel', 'Cancel scheduled shutdown')
+  .description('关机管理命令')
+  .option('-n, --now', '立即关机')
+  .option('-t, --timer <分钟>', '在指定分钟后关机', parseInt)
+  .option('-c, --cancel', '取消计划的关机')
   .action((options) => {
     if (options.now) {
       shutdownNow();
@@ -880,7 +796,7 @@ program
     } else if (options.cancel) {
       cancelShutdown();
     } else {
-      console.log('Please specify a shutdown option: -n/--now, -t/--timer, or -c/--cancel');
+      console.log('请指定关机选项: -n/--now, -t/--timer, 或 -c/--cancel');
     }
   });
 
@@ -889,27 +805,27 @@ program
  * @function shutdownNow
  */
 function shutdownNow() {
-  console.log('Shutting down now...');
+  console.log('正在关机...');
   exec('shutdown /s /f /t 0', (error) => {
     if (error) {
-      console.error(`Error executing shutdown: ${error}`);
+      console.error(`执行关机时出错: ${error}`);
     }
   });
 }
 
 /**
- * 定时关机函数
+ * 计划关机函数
  * @function scheduleShutdown
  * @param {number} minutes 关机延迟分钟数
  */
 function scheduleShutdown(minutes) {
   const seconds = minutes * 60;
-  console.log(`Scheduling shutdown in ${minutes} minutes...`);
+  console.log(`计划在 ${minutes} 分钟后关机...`);
   exec(`shutdown /s /f /t ${seconds}`, (error) => {
     if (error) {
-      console.error(`Error scheduling shutdown: ${error}`);
+      console.error(`计划关机时出错: ${error}`);
     } else {
-      console.log(`Shutdown scheduled in ${minutes} minutes. Use 'eternocli shutdown --cancel' to cancel.`);
+      console.log(`关机已计划在 ${minutes} 分钟后。使用 'eternocli shutdown --cancel' 取消。`);
     }
   });
 }
@@ -919,12 +835,12 @@ function scheduleShutdown(minutes) {
  * @function cancelShutdown
  */
 function cancelShutdown() {
-  console.log('Cancelling scheduled shutdown...');
+  console.log('取消计划的关机...');
   exec('shutdown /a', (error) => {
     if (error) {
-      console.error(`Error cancelling shutdown: ${error}`);
+      console.error(`取消关机时出错: ${error}`);
     } else {
-      console.log('Scheduled shutdown cancelled.');
+      console.log('计划的关机已取消。');
     }
   });
 }
@@ -937,20 +853,20 @@ function cancelShutdown() {
  */
 program
   .command('vmdetail')
-  .description('显示媒体文件详细信息')
-  .option('-v, --video <path>', '视频文件路径')
-  .option('-m, --audio <path>', '音频文件路径')
+  .description('显示详细的媒体文件信息')
+  .option('-v, --video <路径>', '视频文件路径')
+  .option('-m, --audio <路径>', '音频文件路径')
   .action((options) => {
     const path = options.video || options.audio;
     if (!path) {
-      console.error('错误：请提供音频或视频文件路径');
+      console.error('错误: 请提供音频或视频文件路径');
       process.exit(1);
     }
     
     getMediaDetails(path)
       .then(details => {
         console.log('媒体文件详细信息:');
-        console.log('=================');
+        console.log('===================');
         console.log(`文件路径: ${details.path}`);
         console.log(`格式: ${details.format}`);
         console.log(`时长: ${formatDuration(details.duration)}`);
@@ -958,7 +874,7 @@ program
         
         if (details.video) {
           console.log('\n视频信息:');
-          console.log(`  编码: ${details.video.codec}`);
+          console.log(`  编解码器: ${details.video.codec}`);
           console.log(`  分辨率: ${details.video.resolution}`);
           console.log(`  帧率: ${details.video.fps} fps`);
           console.log(`  比特率: ${details.video.bitrate} kbps`);
@@ -966,7 +882,7 @@ program
         
         if (details.audio) {
           console.log('\n音频信息:');
-          console.log(`  编码: ${details.audio.codec}`);
+          console.log(`  编解码器: ${details.audio.codec}`);
           console.log(`  采样率: ${details.audio.sampleRate} Hz`);
           console.log(`  声道: ${details.audio.channels}`);
           console.log(`  比特率: ${details.audio.bitrate} kbps`);
@@ -986,9 +902,9 @@ program
  */
 
 /**
- * 格式化时长为 HH:MM:SS 格式
+ * 将时长格式化为 HH:MM:SS
  * @param {number} seconds 总秒数
- * @returns {string} 格式化后的时长字符串
+ * @returns {string} 格式化的时长字符串
  */
 function formatDuration(seconds) {
   if (!seconds || seconds < 0) return '00:00:00';
@@ -1005,9 +921,9 @@ function formatDuration(seconds) {
 }
 
 /**
- * 格式化文件大小为最佳单位
- * @param {number} bytes 文件大小（字节）
- * @returns {string} 格式化后的文件大小字符串
+ * 使用适当单位格式化文件大小
+ * @param {number} bytes 文件大小(字节)
+ * @returns {string} 格式化的文件大小字符串
  */
 function formatSize(bytes) {
   if (!bytes || bytes < 0) return '0 B';
@@ -1015,11 +931,11 @@ function formatSize(bytes) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const base = 1024;
   
-  // 计算应该使用哪个单位
+  // 计算使用哪个单位
   const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(base)), units.length - 1);
   const value = bytes / Math.pow(base, exponent);
   
-  // 格式化数值，保留2位小数
+  // 格式化值，保留2位小数
   return `${value.toFixed(2)} ${units[exponent]}`;
 }
 /**end 工具函数**/
@@ -1027,47 +943,47 @@ function formatSize(bytes) {
 /**begin 图片重命名**/
 program
   .command('rename')
-  .description('批量重命名图片文件，按自然顺序从指定起始编号开始')
-  .requiredOption('-s, --src <dir>', '图片所在目录')
-  .requiredOption('-n, --num <number>', '起始编号')
-  .option('-f, --force', '跳过确认提示，直接执行', false)
-  .option('-w, --width <number>', '固定位数（如3则生成001.jpg），不指定则自动计算')
-  .option('--dry-run', '只预览不执行', false)
+  .description('从指定数字开始按自然顺序批量重命名图片文件')
+  .requiredOption('-s, --src <目录>', '图片目录')
+  .requiredOption('-n, --num <数字>', '起始数字')
+  .option('-f, --force', '跳过确认提示直接执行', false)
+  .option('-w, --width <数字>', '固定数字宽度(例如，3生成001.jpg)，如未指定则自动计算')
+  .option('--dry-run', '仅预览不执行', false)
   .action((options) => {
     renameImages(options.src, options.num, options.force, {
-      autoWidth: !options.width, // 如果指定了width则不用自动计算
+      autoWidth: !options.width, // 如果指定了宽度则不自动计算
       fixedWidth: options.width ? parseInt(options.width) : 3,
       dryRun: options.dryRun
     });
   });
 
-// 新增命令：补充数字文件名位数
+// 新命令: 数字文件名补零
 program
   .command('pad-numbers')
-  .description('将数字文件名补充位数，例如1.jpg改为001.jpg')
-  .requiredOption('-s, --src <dir>', '图片所在目录')
-  .option('-w, --width <number>', '位数宽度，默认3', '3')
+  .description('用零填充数字文件名，例如1.jpg变为001.jpg')
+  .requiredOption('-s, --src <目录>', '图片目录')
+  .option('-w, --width <数字>', '数字宽度，默认为3', '3')
   .action((options) => {
     padNumberFilenames(options.src, parseInt(options.width));
   });
-/**end  图片重命名**/
+/**end 图片重命名**/
 
 program
   .command('flowmaid')
-  .description('Compile .flowmaid file to mind map')
-  .requiredOption('-s, --source <file>', 'Source .flowmaid file')
-  .option('-o, --output <dir>', 'Output directory', './')
-  .option('-f, --format <format>', 'Output format (html, json)', 'html')
+  .description('编译 .flowmaid 文件为思维导图')
+  .requiredOption('-s, --source <文件>', '源 .flowmaid 文件')
+  .option('-o, --output <目录>', '输出目录', './')
+  .option('-f, --format <格式>', '输出格式 (html, json)', 'html')
   .action(async (options) => {
     try {
-      console.log('🔧 Compiling Flowmaid file...');
+      console.log('🔧 正在编译 Flowmaid 文件...');
       
       const sourcePath = path.resolve(options.source);
       const outputDir = path.resolve(options.output);
       
       // 检查源文件是否存在
       if (!await fs_e.pathExists(sourcePath)) {
-        throw new Error(`Source file not found: ${sourcePath}`);
+        throw new Error(`未找到源文件: ${sourcePath}`);
       }
       
       // 确保输出目录存在
@@ -1082,23 +998,23 @@ program
         outputDir: outputDir
       });
       
-      console.log('✅ Compilation completed!');
-      console.log(`📁 Output files:`);
+      console.log('✅ 编译完成!');
+      console.log(`📁 输出文件:`);
       result.outputFiles.forEach(file => {
         console.log(`   - ${file}`);
       });
       
     } catch (error) {
-      console.error('❌ Compilation failed:', error.message);
+      console.error('❌ 编译失败:', error.message);
       process.exit(1);
     }
   });
 
-/**begin 程序入口**/
+/**begin 程序入口点**/
 /**
  * 程序入口点
- * @module 程序入口
+ * @module 程序入口点
  */
 // 解析命令行参数
 program.parse(process.argv);
-/**end 程序入口**/
+/**end 程序入口点**/
