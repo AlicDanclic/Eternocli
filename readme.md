@@ -1,6 +1,8 @@
-<div align="center"><h2>EternoCli User Guide</h2></div>
+<div align="center">
+<h2>EternoCli User Guide</h2>
+</div>
 
-> This is a command-line extension based on JS, designed to facilitate personal project work
+> This is a JavaScript-based command-line extension designed to facilitate personal project work
 
 ### 1. Installation
 
@@ -43,6 +45,20 @@ Example:
 eternocli create my-project -a "docs,src/components" -r "References"
 ```
 
+##### View Project Command
+
+```shell
+eternocli view-project [options]
+```
+
+Displays project JSON file content.
+
+Options:
+- `-p, --path <path>`: Specify project JSON file path
+- `-f, --full`: Display complete project information
+- `-c, --changelog`: Display only changelog
+- `-m, --summary`: Display only project summary
+
 ##### Update Project Command
 
 ```shell
@@ -54,6 +70,7 @@ Updates the project's JSON file and executes git commands to commit changes.
 Options:
 - `-m, --message <message>`: Commit message
 - `-v, --version <version>`: Version number for changelog
+- `-p, --push`: Push to remote repository
 
 Example:
 ```shell
@@ -121,6 +138,7 @@ Options:
 - `-i, --iv <iv>`: Initialization vector (hex string, required for some algorithms)
 - `-f, --file`: Process file instead of text
 - `-o, --output <output>`: Output file path
+- `-s, --save-keys <keyfile>`: Save generated keys to file (encryption only)
 
 Examples:
 ```shell
@@ -139,89 +157,7 @@ eternocli cryption-algorithms
 
 Displays all supported encryption algorithms.
 
-#### (4) Compression:
-
-##### ZIP Compression Command
-
-```shell
-eternocli zip [options]
-```
-
-Performs ZIP compression operations.
-
-Options:
-- `-a, --all`: Compress all contents of current directory
-- `-n, --name <name>`: Specify compressed file name
-- `-f, --folders`: Compress all folders in current directory
-- `-r, --files`: Compress all files in current directory
-- `-w, --work <src>`: Compress specified file/folder
-- `-o, --output <path>`: Output path
-- `-d, --delete`: Delete source after compression
-
-Example:
-```shell
-eternocli zip -a -n archive.zip -d
-```
-
-##### 7z Compression Command
-
-```shell
-eternocli 7z [options]
-```
-
-Performs 7z compression operations (requires 7-Zip installed).
-
-Options same as zip command.
-
-Example:
-```shell
-eternocli 7z -a -n archive.7z -d
-```
-
-##### RAR Compression Command
-
-```shell
-eternocli rar [options]
-```
-
-Performs RAR compression operations (requires WinRAR or RAR CLI tool).
-
-Options same as zip command.
-
-Example:
-```shell
-eternocli rar -a -n archive.rar -d
-```
-
-#### (5) Secure Compression:
-
-##### Encrypted Zip Command
-
-```shell
-eternocli ezip <src> [-o <path>]
-```
-
-Compresses and encrypts a file using AES-256-GCM encryption.
-
-Example:
-```shell
-eternocli ezip document.pdf -o secure.ezip
-```
-
-##### Decrypt Zip Command
-
-```shell
-eternocli dezip <src> [-o <path>]
-```
-
-Decrypts and decompresses a .ezip file.
-
-Example:
-```shell
-eternocli dezip secure.ezip -o document.pdf
-```
-
-#### (6) QR Code & Barcode:
+#### (4) QR Code & Barcode:
 
 ##### Generate QR Code/Barcode Command
 
@@ -247,7 +183,7 @@ eternocli qrcode -t -u "https://example.com" -o qr.png
 eternocli qrcode -s -m "123456789" -o barcode.png
 ```
 
-#### (7) System Utilities:
+#### (5) System Utilities:
 
 ##### Autostart Command
 
@@ -289,7 +225,7 @@ eternocli shutdown -t 30
 eternocli shutdown -c
 ```
 
-#### (8) Media Utilities:
+#### (6) Media Utilities:
 
 ##### Media Details Command
 
@@ -308,41 +244,56 @@ Example:
 eternocli vmdetail -v video.mp4
 ```
 
+#### (7) Image Management:
+
 ##### Image Rename Command
 
 ```shell
-eternocli rename -s <dir> -n <number> [-f]
+eternocli rename -s <dir> -n <number> [-f] [-w <width>] [--dry-run]
 ```
 
 Batch renames image files in natural order starting from specified number.
 
 Options:
-- `-s, --src <dir>`: Source directory containing images
-- `-n, --num <number>`: Starting number
+- `-s, --src <dir>`: Source directory containing images (required)
+- `-n, --num <number>`: Starting number (required)
 - `-f, --force`: Skip confirmation prompt
+- `-w, --width <number>`: Fixed number width
+- `--dry-run`: Preview only, don't execute
 
 Example:
 ```shell
 eternocli rename -s ./images -n 1
 ```
 
-#### (9) Utilities:
-
-##### File Compare Command
+##### Pad Number Filenames Command
 
 ```shell
-eternocli compare <file1> <file2> [-m <mode>]
+eternocli pad-numbers -s <dir> [-w <width>]
 ```
 
-Compares two files using different comparison modes.
+Pads numeric filenames with zeros (e.g., 1.jpg becomes 001.jpg).
 
 Options:
-- `-m, --mode <mode>`: Comparison mode (content, binary, size) - default: content
+- `-s, --src <dir>`: Source directory (required)
+- `-w, --width <number>`: Number width (default: 3)
 
-Example:
+#### (8) Mind Map:
+
+##### Flowmaid Compile Command
+
 ```shell
-eternocli compare file1.txt file2.txt -m content
+eternocli flowmaid -s <file> [-o <dir>] [-f <format>]
 ```
+
+Compiles .flowmaid files to mind maps.
+
+Options:
+- `-s, --source <file>`: Source .flowmaid file (required)
+- `-o, --output <dir>`: Output directory (default: ./)
+- `-f, --format <format>`: Output format (html, json, default: html)
+
+#### (9) Utilities:
 
 ##### Password Generation Command
 
@@ -363,7 +314,7 @@ eternocli generate-password -l 20 -c high
 
 ### 3. Notes
 
-- Some features (7z, RAR compression) require external tools to be installed on your system
+- Some features require external tools to be installed on your system
 - Encryption features use strong cryptographic algorithms for security
 - File transformation supports multiple formats including images, documents, and ebooks
 - The tool is designed for Windows systems but may work on other platforms with adjustments
