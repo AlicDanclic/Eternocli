@@ -19,6 +19,7 @@ const { getMediaDetails } = require('./Src/vmdetail');
 const { generateQRCode, generateBarcode } = require('./Src/qr');
 const Encrypted = require('./Src/Encrypted');
 const { transformFile, getSupportedConversions } = require('./Src/transform');
+const ejson = require('./Src/ejson');
 // 在顶部添加加密/解密模块导入
 const { 
   generateKeyAndIV, 
@@ -34,8 +35,8 @@ const {
  * 默认项目结构和文件配置
  * @module 默认配置
  */
-const defaultDirs = ['位图', '硬件', '软件', '参考资料', '数据手册'];
-const defaultFiles = ['说明文档.md', '.gitignore'];
+const defaultDirs = ['Bitmap', 'Hardware', 'Software', 'Reference', 'DataSheet'];
+const defaultFiles = ['Readme.md', '.gitignore'];
 /**end 默认配置**/
 
 /**begin 程序基本信息**/
@@ -110,7 +111,7 @@ program
         const filePath = path.join(projectPath, file);
         if (!fs.existsSync(filePath)) {
           if (file === '说明文档.md') {
-            fs.writeFileSync(filePath, `# ${项目名称}\n\n项目描述写在这里。`);
+            fs.writeFileSync(filePath, `<div align="center"><h1>${项目名称}</h1></div>`);
           } else if (file === '.gitignore') {
             fs.writeFileSync(filePath, 'node_modules/\n.env\n.DS_Store\n');
           } else {
@@ -523,6 +524,7 @@ program
   .option('-k, --key <密钥>', '加密密钥(十六进制字符串)')
   .option('-i, --iv <初始向量>', '初始化向量(十六进制字符串，某些算法需要)')
   .option('-f, --file', '处理文件而不是文本')
+  .option('-w, --word <密钥文件>', '密钥文件路径')
   .option('-o, --output <输出>', '输出文件路径')
   .option('-s, --save-keys <密钥文件>', '将生成的密钥保存到文件(仅加密)')
   .argument('[数据]', '要加密/解密的文本或文件路径')
@@ -1011,6 +1013,50 @@ program
   });
 
 /**begin 程序入口点**/
+
+// 设置程序信息
+program
+  .command('ejson <file>')
+  .description('增强的 JSON 文件查看器和操作工具')
+  .option('-p, --parse', '解析并显示完整的 JSON 内容')
+  .option('-i, --indent <spaces>', '格式化输出的缩进空格数', '2')
+  .option('-g, --get <path>', '提取指定路径的值')
+  .option('-d, --default <value>', '当路径不存在时返回的默认值')
+  .option('-r, --raw', '输出原始值（不格式化）')
+  .option('-s, --search <key>', '搜索包含指定键的所有值')
+  .option('-v, --value <searchValue>', '搜索时同时匹配的值')
+  .option('-k, --keys', '列出所有键')
+  .option('-a, --all', '列出所有嵌套键（与 --keys 一起使用）')
+  .option('--validate', '验证 JSON 文件格式')
+  .option('--stats', '显示 JSON 文件的统计信息')
+  .action((file, options) => {
+    try {
+      // 根据选项执行相应的操作
+      if (options.parse) {
+        ejson.parseFile(file, parseInt(options.indent));
+      } else if (options.get) {
+        ejson.getValue(file, options.get, {
+          defaultValue: options.default,
+          raw: options.raw
+        });
+      } else if (options.search) {
+        ejson.searchKey(file, options.search, options.value);
+      } else if (options.keys) {
+        ejson.listKeys(file, options.all);
+      } else if (options.validate) {
+        ejson.validateFile(file);
+      } else if (options.stats) {
+        ejson.getStats(file);
+      } else {
+        // 默认行为：显示完整 JSON
+        ejson.parseFile(file, parseInt(options.indent));
+      }
+    } catch (error) {
+      console.error('错误:', error.message);
+      process.exit(1);
+    }
+  });
+
 /**
  * 程序入口点
  * @module 程序入口点

@@ -11,6 +11,12 @@
 git clone git@github.com:AlicDanclic/Eternocli.git
 ```
 
+进入目录:
+
+```shell
+cd ./Eternocli/
+```
+
 安装所需的 JavaScript 模块：
 
 ```shell
@@ -30,10 +36,10 @@ npm link
 ##### 创建项目命令
 
 ```shell
-eternocli create <项目名称> -a <项目> -r <项目>
+eternocli create <项目名称> -a <项目> -r <项目> -d <目录>
 ```
 
-创建具有指定名称的项目结构，包括默认目录（位图、硬件、软件、参考资料、数据手册）和文件（说明文档.md、.gitignore、名称.json）。
+创建具有指定名称的项目结构，包括默认目录（Bitmap、Hardware、Software、DataSheet、References）和文件（Readme.md、.gitignore、名称.json）。
 
 选项：
 - `-d, --dir <路径>`：指定项目目录（默认：当前目录）
@@ -45,6 +51,21 @@ eternocli create <项目名称> -a <项目> -r <项目>
 eternocli create my-project -a "docs,src/components" -r "参考资料"
 ```
 
+> 用户可以自定义项目架构模板:
+>
+> ```javascript
+> /**begin 默认配置**/
+> /**
+>  * 默认项目结构和文件配置
+>  * @module 默认配置
+>  */
+> const defaultDirs = ['Bitmap', 'Hardware', 'Software', 'Reference', 'DataSheet'];
+> const defaultFiles = ['Readme.md', '.gitignore'];
+> /**end 默认配置**/
+> ```
+>
+> 修改对应的列表即可其中`defaultDirs`是要创建的文件夹,`defaultFiles`是对应的文件
+
 ##### 查看项目命令
 
 ```shell
@@ -54,7 +75,7 @@ eternocli view-project [选项]
 显示项目 JSON 文件内容。
 
 选项：
-- `-p, --path <路径>`：指定项目 JSON 文件路径
+- `-p, --path <路径>`：指定项目 JSON 文件路径(如果不指定的话就会找当前目录下的json文件,这个和下面的`update`,`git-init`是相互关联的)
 - `-f, --full`：显示完整项目信息
 - `-c, --changelog`：仅显示更新日志
 - `-m, --summary`：仅显示项目摘要
@@ -70,7 +91,7 @@ eternocli update -m <消息> -v <版本号>
 选项：
 - `-m, --message <消息>`：提交消息
 - `-v, --version <版本号>`：更新日志的版本号
-- `-p, --push`：推送到远程仓库
+- `-p, --push`：推送到远程仓库(请确保你已经链接了对应的仓库)
 
 示例：
 ```shell
@@ -90,8 +111,28 @@ eternocli git-init -u <链接>
 
 示例：
 ```shell
-eternocli git-init -u git@github.com:username/repository.git
+eternocli git-init -u "git@github.com:username/repository.git"
 ```
+
+> 这里建议用引号引起远程连接,不然会出现问题?
+
+> git-init执行的命令为:
+>
+> ```shell
+> git init
+> git add .
+> git commit -m "first commit"
+> git branch -M main
+> git remote add origin git@github.com:xxxxxx/xxx.git
+> git push -u origin main
+> ```
+>
+> updata执行的命令为
+>
+> ```shell
+> git add .
+> git commit -m "message"
+> git push origin main
 
 #### (2) 文件转换：
 
