@@ -1,0 +1,120 @@
+{
+  "metadata": {
+    "title": "Flowmaid Mind Map",
+    "author": "Flowmaid Compiler",
+    "version": "1.0",
+    "theme": "modern",
+    "layout": "mindmap",
+    "backgroundColor": "#FFFFFF",
+    "width": 1600,
+    "height": 1200
+  },
+  "root": {
+    "name": "项目计划",
+    "attributes": {
+      "color": "#4ECDC4",
+      "shape": "ellipse",
+      "priority": "high"
+    },
+    "level": 1,
+    "children": [
+      {
+        "name": "需求阶段",
+        "attributes": {
+          "progress": 100
+        },
+        "level": 2,
+        "children": [
+          {
+            "name": "用户调研",
+            "attributes": {
+              "date": "2024-01-10",
+              "participants": 5
+            },
+            "level": 4,
+            "children": [
+              {
+                "name": "需求分析",
+                "attributes": {
+                  "assignee": "张三",
+                  "status": "completed"
+                },
+                "level": 6,
+                "children": [
+                  {
+                    "name": "功能需求",
+                    "attributes": {},
+                    "level": 9,
+                    "children": [
+                      {
+                        "name": "非功能需求",
+                        "attributes": {},
+                        "level": 12,
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "开发阶段",
+        "attributes": {
+          "progress": 75,
+          "team": "开发组"
+        },
+        "level": 2,
+        "children": [
+          {
+            "name": "前端开发",
+            "attributes": {
+              "progress": 80,
+              "assignee": "李四"
+            },
+            "level": 4,
+            "children": [
+              {
+                "name": "后端开发",
+                "attributes": {
+                  "progress": 70,
+                  "assignee": "王五"
+                },
+                "level": 6,
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "测试阶段",
+        "attributes": {
+          "progress": 30
+        },
+        "level": 2,
+        "children": [
+          {
+            "name": "单元测试",
+            "attributes": {
+              "testCases": 50
+            },
+            "level": 4,
+            "children": [
+              {
+                "name": "集成测试",
+                "attributes": {
+                  "scenarios": 10
+                },
+                "level": 6,
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

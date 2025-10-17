@@ -1,5 +1,7 @@
 # Flowmaid 语法规范
 
+> 请注意:务必使用UTF-8编码
+
 ## 文件结构
 
 ```markdown

@@ -1,5 +1,7 @@
 # Flowmaid Syntax Specification
 
+> Please note: Be sure to use UTF-8 encoding.
+
 ## File Structure
 
 ```markdown
