@@ -20,6 +20,10 @@ const { generateQRCode, generateBarcode } = require('./Src/qr');
 const Encrypted = require('./Src/Encrypted');
 const { transformFile, getSupportedConversions } = require('./Src/transform');
 const ejson = require('./Src/ejson');
+const FlowTimeCompiler = require('./Src/flowtime');
+const HTMLGenerator = require('./Src/html-generator');
+const ImageGenerator = require('./Src/image-generator');
+const tolist = require('./Src/tolist');
 // 在顶部添加加密/解密模块导入
 const { 
   generateKeyAndIV, 
@@ -28,6 +32,15 @@ const {
   processFile, 
   getSupportedAlgorithms 
 } = require('./Src/code');
+
+const {
+  addStartupItem,
+  updateStartupItem,
+  deleteStartupItem,
+  startItem,
+  listStartupItems,
+  getConfigPath
+} = require('./Src/qstart');
 /**end 导入模块**/
 
 /**begin 默认配置**/
@@ -758,6 +771,60 @@ program
   });
 /**end 二维码/条形码命令**/
 
+program
+  .command('tolist')
+  .description('任务管理操作')
+  .option('-i, --init', '初始化 tolist 项目')
+  .option('-c, --clear', '清除当日任务和标记')
+  .option('-o, --complete <target>', '标记任务为完成')
+  .option('-d, --display', '展示任务列表')
+  .option('-a, --add', '添加新任务')
+  .option('--delete <taskName>', '删除指定任务')
+  .option('-s, --path <path>', '项目路径', './')
+  .option('-p, --priority <priority>', '任务优先级')
+  .option('-n, --name <name>', '任务名称')
+  .option('-t, --time <time>', '截止时间')
+  .option('-r, --type <type>', '任务类型 (habit/daily)')
+  .action(async (options) => {
+    try {
+      if (options.init) {
+        await tolist.initProject(options.path);
+        console.log('✅ tolist 项目初始化成功');
+      } else if (options.clear) {
+        await tolist.clearTasks(options.path);
+        console.log('✅ 当日任务清除成功');
+      } else if (options.complete) {
+        await tolist.completeTask(options.path, options.complete);
+        console.log(`✅ 任务 "${options.complete}" 标记为完成`);
+      } else if (options.display) {
+        if (options.delete) {
+          await tolist.deleteTask(options.path, options.delete);
+          console.log(`✅ 任务 "${options.delete}" 删除成功`);
+        } else {
+          await tolist.displayTasks(options.path);
+        }
+      } else if (options.add) {
+        if (!options.name) {
+          console.error('❌ 添加任务必须指定任务名称 (-n)');
+          return;
+        }
+        await tolist.addTask(
+          options.path,
+          options.name,
+          options.priority,
+          options.time,
+          options.type
+        );
+        console.log(`✅ 任务 "${options.name}" 添加成功`);
+      } else {
+        console.log('❌ 请指定一个有效的操作');
+        program.help();
+      }
+    } catch (error) {
+      console.error('❌ 操作失败:', error.message);
+    }
+  });
+
 /**begin 开机自启命令**/
 /**
  * 开机自启设置命令实现
@@ -1056,6 +1123,163 @@ program
       process.exit(1);
     }
   });
+
+program
+    .command('flowtime')
+    .description('编译 FlowTime 波形描述文件')
+    .requiredOption('-s, --source <file>', '输入 FlowTime 源文件')
+    .requiredOption('-o, --output <file>', '输出文件')
+    .option('-f, --format <format>', '输出格式 (json, html, png)', 'json')
+    .option('-v, --verbose', '显示详细编译信息')
+    .action((options) => {
+        compileFlowTime(options);
+    });
+
+/**
+ * 编译 FlowTime 文件
+ */
+async function compileFlowTime(options) {
+    try {
+        const { source, output, format, verbose } = options;
+        
+        // 检查源文件是否存在
+        if (!fs.existsSync(source)) {
+            console.error(`错误: 源文件不存在: ${source}`);
+            process.exit(1);
+        }
+
+        if (verbose) {
+            console.log('开始编译 FlowTime 文件...');
+            console.log(`输入文件: ${source}`);
+            console.log(`输出文件: ${output}`);
+            console.log(`输出格式: ${format}`);
+        }
+
+        // 读取源文件
+        const sourceCode = fs.readFileSync(source, 'utf8');
+        
+        if (verbose) {
+            console.log(`源文件大小: ${sourceCode.length} 字符`);
+        }
+
+        // 创建编译器并编译
+        const compiler = new FlowTimeCompiler();
+        const result = compiler.compile(sourceCode);
+
+        // 确保输出目录存在
+        const outputDir = path.dirname(output);
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+
+        let outputContent;
+        
+        // 根据格式生成不同输出
+        switch (format.toLowerCase()) {
+            case 'json':
+                outputContent = JSON.stringify(result, null, 2);
+                fs.writeFileSync(output, outputContent);
+                break;
+                
+            case 'html':
+                const htmlGenerator = new HTMLGenerator();
+                outputContent = htmlGenerator.generate(result);
+                fs.writeFileSync(output, outputContent);
+                break;
+                
+            case 'png':
+                const imageGenerator = new ImageGenerator();
+                await imageGenerator.generatePNG(result, output);
+                break;
+                
+            default:
+                throw new Error(`不支持的输出格式: ${format}`);
+        }
+        
+        if (verbose) {
+            console.log('编译完成!');
+            console.log(`时间单位: ${result.metadata.timeUnit}`);
+            console.log(`时间范围: ${result.metadata.timeScale.start} 到 ${result.metadata.timeScale.end}`);
+            console.log(`信号数量: ${result.metadata.signalCount}`);
+            console.log(`事件数量: ${result.metadata.eventCount}`);
+        }
+
+        console.log(`✅ 成功编译 ${source} -> ${output} (${format})`);
+
+    } catch (error) {
+        console.error('❌ 编译失败:', error.message);
+        process.exit(1);
+    }
+}
+
+program
+  .command('qstart')
+  .description('管理启动项')
+  .argument('[name]', '启动项名称')
+  .option('-a, --add <name>', '添加启动项')
+  .option('-c, --change <name>', '修改启动项路径')
+  .option('-d, --delete <name>', '删除启动项')
+  .option('-s, --script <path>', '脚本路径')
+  .option('-l, --list', '列出所有启动项')
+  .option('--config-path', '显示配置文件路径')
+  .action(async (name, options) => {
+    try {
+      if (options.configPath) {
+        const configPath = getConfigPath();
+        console.log(`📁 配置文件路径: ${configPath}`);
+        return;
+      }
+
+      if (options.add && options.script) {
+        const result = await addStartupItem(options.add, options.script);
+        console.log(`✓ 成功添加启动项: ${result.name} -> ${result.path}`);
+      } else if (options.change && options.script) {
+        const result = await updateStartupItem(options.change, options.script);
+        console.log(`✓ 成功修改启动项: ${result.name} -> ${result.path}`);
+      } else if (options.delete) {
+        const deletedName = await deleteStartupItem(options.delete);
+        console.log(`✓ 成功删除启动项: ${deletedName}`);
+      } else if (options.list) {
+        const items = await listStartupItems();
+        const itemList = Object.entries(items);
+
+        if (itemList.length === 0) {
+          console.log('📭 暂无启动项');
+          return;
+        }
+
+        console.log('📋 当前启动项列表:');
+        console.log('='.repeat(80));
+        
+        itemList.forEach(([itemName, item], index) => {
+          console.log(`${index + 1}. ${itemName}`);
+          console.log(`   路径: ${item.path}`);
+          console.log(`   创建: ${new Date(item.created).toLocaleString()}`);
+          if (item.updated) {
+            console.log(`   更新: ${new Date(item.updated).toLocaleString()}`);
+          }
+          console.log('-'.repeat(60));
+        });
+      } else if (name) {
+        console.log(`🚀 启动: ${name}`);
+        const result = await startItem(name);
+        console.log(`📁 路径: ${result.path}`);
+        if (result.method === 'open') {
+          console.log('✅ 使用默认程序打开');
+        } else {
+          console.log(`✅ 启动成功 (退出代码: ${result.code || 0})`);
+        }
+      } else {
+        console.error('错误: 请提供有效的命令参数');
+        console.log('使用 eternocli qstart --help 查看使用说明');
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error(`❌ 操作失败: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
 
 /**
  * 程序入口点
